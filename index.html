@@ -117,7 +117,7 @@ $(document).ready(function () {
 </style>
 <script>
 $(document).ready(function () {
-  window.initializeCodeFolding("hide" === "show");
+  window.initializeCodeFolding("show" === "show");
 });
 </script>
 
@@ -167,16 +167,55 @@ $(document).ready(function () {
 <p>Laptop Toshiba Satellite E55-A, 16GB RAM, 2 núcleos, 4 processadores lógicos, Intel(R) Core(TM) i5-4200U CPU <span class="citation">@2.30GHz</span></p>
 <p>Sistema Operacional Ubuntu 16.04</p>
 <p>Versão do R e bibliotecas:</p>
-<pre><code>      R    xlsx ggplot2  GGally   dplyr   tidyr   caret 
-  3.5.1   0.6.1   3.0.0   1.4.0   0.7.6   0.8.1  6.0.80 </code></pre>
+<pre class="r"><code>options(java.parameters=&quot;-Xmx8192m&quot;)
+packages &lt;- c(&quot;ggplot2&quot;, &quot;GGally&quot;, &quot;dplyr&quot;, &quot;tidyr&quot;, &quot;caret&quot;)
+loaded &lt;- suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
+if(!all(loaded)) {
+    missingPackages &lt;- packages[loaded==FALSE]
+    message(&quot;Installing package(s) &quot;, paste(missingPackages, collapse=&quot;, &quot;))
+    install.packages(missingPackages, dependencies = TRUE)
+    installed &lt;- suppressWarnings(sapply(missingPackages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
+    if(!all(installed)) stop(&quot;Package(s) not installed: &quot;, paste(missingPackages[installed==FALSE], collapse=&quot;, &quot;))
+    
+}
+noquote(c(R=paste(R.Version()[6:7], collapse=&quot;.&quot;), sapply(packages, function(x) paste0(as.character(packageVersion(x)), collapse=&quot;.&quot;))))</code></pre>
+<pre><code>      R ggplot2  GGally   dplyr   tidyr   caret 
+  3.5.1   3.0.0   1.4.0   0.7.6   0.8.1  6.0.80 </code></pre>
 </div>
-<div id="obtendo-os-dados-brutos" class="section level1">
-<h1><span class="header-section-number">5</span> Obtendo os dados brutos</h1>
-<pre><code>                                  size               ctime
-atlas2013_dadosbrutos_pt.xlsx 29396020 2018-07-12 12:01:29</code></pre>
+<div id="extraindo-os-dados-nos-niveis-federal-estadual-e-municipal" class="section level1">
+<h1><span class="header-section-number">5</span> Extraindo os dados nos níveis federal, estadual e municipal</h1>
+<pre class="r"><code>federal &lt;- read.csv2(&quot;federal.csv&quot;, encoding = &quot;UTF-8&quot;,
+                     colClasses = c(&quot;character&quot;, rep(&quot;numeric&quot;,233)), header=F, skip=1,
+                     col.names = c(&quot;PAIS&quot;, unlist(read.csv2(&quot;federal.csv&quot;, stringsAsFactors=F, header=F, nrows=1)[-1])))
+estadual &lt;- read.csv2(&quot;estadual.csv&quot;, encoding = &quot;UTF-8&quot;,
+                      colClasses = c(&quot;numeric&quot;,rep(&quot;character&quot;,2),rep(&quot;numeric&quot;, 232)))
+uf &lt;- unique(estadual[, 2:3])
+municipal &lt;- read.csv2(&quot;municipal.csv&quot;, encoding = &quot;UTF-8&quot;,
+                       colClasses=c(&quot;numeric&quot;,rep(&quot;character&quot;,4),rep(&quot;numeric&quot;, 232)))
+municipal &lt;- left_join(municipal, uf, by=&quot;UF&quot;)[, c(1:2,238,3:237)]
+siglas &lt;- read.csv2(&quot;siglas.csv&quot;, encoding = &quot;UTF-8&quot;)</code></pre>
 </div>
-<div id="extraindo-os-dados-nos-niveis-brasil-estados-e-municipios" class="section level1">
-<h1><span class="header-section-number">6</span> Extraindo os dados nos níveis Brasil, estados e municípios</h1>
+<div id="conferindo-calculos-do-idhm" class="section level1">
+<h1><span class="header-section-number">6</span> Conferindo cálculos do IDHM</h1>
+<pre class="r"><code>municipal %&gt;%
+    filter(ANO==1991) %&gt;%
+    mutate(iescolaridade = round(T_FUND18M / 100, 3),
+           ifreqpop = round( ((T_FREQ5A6 + T_FUND11A13 + T_FUND15A17 + T_MED18A20) / 4) / 100, 3),
+           idhme = round( ( iescolaridade * ifreqpop ^ 2 ) ^ (1/3) , 3),
+           idhml = round( (ESPVIDA - 25) / (85 - 25), 3),
+           idhmr = round( (log(RDPC) - log(8)) / (log(4033)- log(8)), 3),
+           idhm = round( (idhme * idhml * idhmr) ^ (1/3), 3)) %&gt;%
+    select(I_ESCOLARIDADE, iescolaridade, I_FREQ_PROP, ifreqpop, IDHM_E, idhme, IDHM_L, idhml, IDHM_R, idhmr, IDHM, idhm) %&gt;% head</code></pre>
+<pre><code>  I_ESCOLARIDADE iescolaridade I_FREQ_PROP ifreqpop IDHM_E idhme IDHM_L idhml IDHM_R idhmr  IDHM  idhm
+1          0.117         0.116       0.109    0.109  0.112 0.111  0.617 0.617  0.516 0.516 0.329 0.328
+2          0.200         0.200       0.199    0.199  0.199 0.199  0.684 0.684  0.593 0.593 0.432 0.432
+3          0.111         0.111       0.106    0.106  0.108 0.108  0.636 0.636  0.430 0.430 0.309 0.309
+4          0.176         0.176       0.169    0.169  0.171 0.171  0.667 0.667  0.593 0.593 0.407 0.407
+5          0.152         0.152       0.175    0.175  0.167 0.167  0.629 0.629  0.547 0.547 0.386 0.386
+6          0.148         0.148       0.152    0.152  0.151 0.151  0.658 0.658  0.536 0.536 0.376 0.376</code></pre>
+</div>
+<div id="analise-exploratoria" class="section level1">
+<h1><span class="header-section-number">7</span> Análise Exploratória</h1>
 </div>
 
 

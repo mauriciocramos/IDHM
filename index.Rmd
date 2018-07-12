@@ -4,12 +4,12 @@ author: "Maurício Collaça Ramos"
 date: "12 de Julho de 2018"
 output: 
   html_document: 
-    code_folding: hide
+    code_folding: show
     number_sections: yes
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, comment = "", echo = FALSE)
+knitr::opts_chunk$set(echo = TRUE, comment = "")
 options(width = 130)
 ```
 
@@ -82,7 +82,7 @@ municipal %>%
            idhml = round( (ESPVIDA - 25) / (85 - 25), 3),
            idhmr = round( (log(RDPC) - log(8)) / (log(4033)- log(8)), 3),
            idhm = round( (idhme * idhml * idhmr) ^ (1/3), 3)) %>%
-    select(I_ESCOLARIDADE, iescolaridade, I_FREQ_PROP, ifreqpop, IDHM_E, idhme, IDHM_L, idhml, IDHM_R, idhmr, IDHM, idhm) 
+    select(I_ESCOLARIDADE, iescolaridade, I_FREQ_PROP, ifreqpop, IDHM_E, idhme, IDHM_L, idhml, IDHM_R, idhmr, IDHM, idhm) %>% head
 ```
 
 # Análise Exploratória
