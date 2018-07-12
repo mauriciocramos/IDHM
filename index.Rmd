@@ -1,0 +1,94 @@
+---
+title: "Machine Learning com o Índice de Desenvolvimento Humano Municipal do Brasil"
+author: "Maurício Collaça Ramos"
+date: "12 de Julho de 2018"
+output: 
+  html_document: 
+    code_folding: hide
+    number_sections: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = "", echo = FALSE)
+options(width = 130)
+```
+
+# Introdução
+
+O Atlas do Desenvolvimento Humano no Brasil é um banco de dados contendo Índice de Desenvolvimento Humano Municipal (IDHM) de 5.565 municípios brasileiros, 27 Unidades da Federação (UF), 21 Regiões Metropolitanas (RM) e 3 Regiões Integradas de Desenvolvimento (RIDE) e suas respectivas Unidades de Desenvolvimento Humano (UDH). Além do IDHM, constam mais de 200 indicadores de demografia, educação, renda, trabalho, habitação e vulnerabilidade, com dados extraídos dos Censos Demográficos de 1991, 2000 e 2010. Para maiores informações visite http://www.atlasbrasil.org.br.
+
+# Objetivos
+
+O objetivo principal é construir modelo preditivo **de uma variável-alvo** a partir de variáveis preditoras selecionadas do Atlas do Desenvolvimento Humano no Brasil, com uso de técnicas de aprendizado de máquina supervisionado.
+
+O objetivo secundário é realizar uma análise exploratória dos dados para identificação das variáveis preditoras que a priori aumentem a precisão do modelo.
+
+# Fonte dos dados
+
+Atlas do Desenvolvimento Humano do Brasil: [Atlas dos Municipios](http://www.atlasbrasil.org.br/2013/data/rawData/atlas2013_dadosbrutos_pt.xlsx)
+
+Autoria:
+
+[PNUD - Programa das Nações Unidas para o Desenvolvimento](http://www.pnud.org.br/)  
+[IPEA - Instituto de Pesquisa Econômica Aplicada](http://www.ipea.gov.br/)  
+[Fundação João Pinheiro - Governo de Minas Gerais](http://www.fjp.mg.gov.br/)
+
+# Recursos computacionais
+
+Laptop Toshiba Satellite E55-A, 16GB RAM, 2 núcleos, 4 processadores lógicos, Intel(R) Core(TM) i5-4200U CPU @2.30GHz
+
+Sistema Operacional Ubuntu 16.04
+
+Versão do R e bibliotecas:
+
+```{r}
+options(java.parameters="-Xmx8192m")
+packages <- c("ggplot2", "GGally", "dplyr", "tidyr", "caret")
+loaded <- suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
+if(!all(loaded)) {
+    missingPackages <- packages[loaded==FALSE]
+    message("Installing package(s) ", paste(missingPackages, collapse=", "))
+    install.packages(missingPackages, dependencies = TRUE)
+    installed <- suppressWarnings(sapply(missingPackages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
+    if(!all(installed)) stop("Package(s) not installed: ", paste(missingPackages[installed==FALSE], collapse=", "))
+    
+}
+noquote(c(R=paste(R.Version()[6:7], collapse="."), sapply(packages, function(x) paste0(as.character(packageVersion(x)), collapse="."))))
+```
+
+# Extraindo os dados nos níveis federal, estadual e municipal
+
+```{r}
+federal <- read.csv2("federal.csv", encoding = "UTF-8",
+                     colClasses = c("character", rep("numeric",233)), header=F, skip=1,
+                     col.names = c("PAIS", unlist(read.csv2("federal.csv", stringsAsFactors=F, header=F, nrows=1)[-1])))
+estadual <- read.csv2("estadual.csv", encoding = "UTF-8",
+                      colClasses = c("numeric",rep("character",2),rep("numeric", 232)))
+uf <- unique(estadual[, 2:3])
+municipal <- read.csv2("municipal.csv", encoding = "UTF-8",
+                       colClasses=c("numeric",rep("character",4),rep("numeric", 232)))
+municipal <- left_join(municipal, uf, by="UF")[, c(1:2,238,3:237)]
+siglas <- read.csv2("siglas.csv", encoding = "UTF-8")
+```
+
+# Conferindo cálculos do IDHM
+
+```{r}
+municipal %>%
+    filter(ANO==1991) %>%
+    mutate(iescolaridade = round(T_FUND18M / 100, 3),
+           ifreqpop = round( ((T_FREQ5A6 + T_FUND11A13 + T_FUND15A17 + T_MED18A20) / 4) / 100, 3),
+           idhme = round( ( iescolaridade * ifreqpop ^ 2 ) ^ (1/3) , 3),
+           idhml = round( (ESPVIDA - 25) / (85 - 25), 3),
+           idhmr = round( (log(RDPC) - log(8)) / (log(4033)- log(8)), 3),
+           idhm = round( (idhme * idhml * idhmr) ^ (1/3), 3)) %>%
+    select(I_ESCOLARIDADE, iescolaridade, I_FREQ_PROP, ifreqpop, IDHM_E, idhme, IDHM_L, idhml, IDHM_R, idhmr, IDHM, idhm) 
+```
+
+# Análise Exploratória
+
+```{r}
+
+```
+
+
