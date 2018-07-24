@@ -1,11 +1,14 @@
 ---
-title: "Machine Learning com o Índice de Desenvolvimento Humano Municipal do Brasil"
+title: "Machine Learning com o Indice de Desenvolvimento Humano Municipal do Brasil"
 author: "Maurício Collaça Ramos"
 date: "12 de Julho de 2018"
 output: 
   html_document: 
-    code_folding: show
+    code_folding: hide
     number_sections: yes
+    toc: yes
+    toc_float: true
+    toc_collapsed: true
 ---
 
 ```{r setup, include=FALSE}
@@ -39,11 +42,12 @@ Laptop Toshiba Satellite E55-A, 16GB RAM, 2 núcleos, 4 processadores lógicos, 
 
 Sistema Operacional Ubuntu 16.04
 
-Versão do R e bibliotecas:
+Linguagem `r R.version.string`
 
+Pacotes R:
 ```{r}
 options(java.parameters="-Xmx8192m")
-packages <- c("ggplot2", "GGally", "dplyr", "tidyr", "caret")
+packages <- c("ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret")
 loaded <- suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
@@ -53,42 +57,396 @@ if(!all(loaded)) {
     if(!all(installed)) stop("Package(s) not installed: ", paste(missingPackages[installed==FALSE], collapse=", "))
     
 }
-noquote(c(R=paste(R.Version()[6:7], collapse="."), sapply(packages, function(x) paste0(as.character(packageVersion(x)), collapse="."))))
+packageVersions <- sapply(packages, function(x) paste0(as.character(packageVersion(x)), collapse="."))
+noquote(packageVersions)
 ```
 
-# Extraindo os dados nos níveis federal, estadual e municipal
+# Importação, organização e validação dos dados
 
+Importando dados brutos dos níveis federal, estadual, municipal e o dicionário de dados
 ```{r}
+colNames <- toupper(iconv(c("pais", unlist(read.csv2("federal.csv", stringsAsFactors=F, header=F, nrows=1)[-1])), to="ASCII//TRANSLIT"))
 federal <- read.csv2("federal.csv", encoding = "UTF-8",
-                     colClasses = c("character", rep("numeric",233)), header=F, skip=1,
-                     col.names = c("PAIS", unlist(read.csv2("federal.csv", stringsAsFactors=F, header=F, nrows=1)[-1])))
+                     colClasses = c("character", "factor", rep("numeric",232)), header=F, skip=1,
+                     col.names = colNames)
 estadual <- read.csv2("estadual.csv", encoding = "UTF-8",
-                      colClasses = c("numeric",rep("character",2),rep("numeric", 232)))
-uf <- unique(estadual[, 2:3])
+                      colClasses = c(rep("factor",3),rep("numeric", 232)))
+names(estadual) <- toupper(iconv(names(estadual), to="ASCII//TRANSLIT"))
 municipal <- read.csv2("municipal.csv", encoding = "UTF-8",
-                       colClasses=c("numeric",rep("character",4),rep("numeric", 232)))
-municipal <- left_join(municipal, uf, by="UF")[, c(1:2,238,3:237)]
-siglas <- read.csv2("siglas.csv", encoding = "UTF-8")
+                       colClasses=c(rep("factor",2),rep("character",3),rep("numeric", 232)))
+names(municipal) <- toupper(iconv(names(municipal), to="ASCII//TRANSLIT"))
+dicionario <- read.csv2("dicionario.csv", encoding = "UTF-8")
+names(dicionario) <- toupper(iconv(names(dicionario), to="ASCII//TRANSLIT"))
+cat("federal: ", nrow(federal), " registros de", length(federal), "variáveis\n")
+cat("estadual: ", nrow(estadual), " registros de", length(estadual), "variáveis\n")
+cat("municipal: ", nrow(municipal), " registros de", length(municipal), "variáveis\n")
+cat("dicionário: ", nrow(dicionario), " registros de", length(dicionario), "variáveis\n")
 ```
 
-# Conferindo cálculos do IDHM
+Foram adicionadas siglas alfabéticas e nomes para as unidades da federação e regiões brasileiras reorganizando os dados de forma mais adequada a gráficos e análises.
+```{r}
+uf <- unique(estadual[, 2:3])
+uf$UFS <- factor(c("RO", "AC", "AM", "RR", "PA", "AP", "TO", "MA", "PI", "CE", "RN", "PB", "PE", "AL", "SE", "BA", "MG", "ES", "RJ", "SP", "PR", "SC", "RS", "MS", "MT", "GO", "DF"))
+uf$REGIAO <- factor(c(rep("N",7), rep("NE", 9), rep("SE", 4), rep("S", 3), rep("CO", 4)))
+uf$REGIAON <- factor(c(rep("Norte",7), rep("Nordeste", 9), rep("Sudeste", 4), rep("Sul", 3), rep("Centro-Oeste", 4)))
+estadual <- left_join(estadual, uf, by="UF", suffix=c("","y"))[, c(1:3,237:239,4:235)]
+municipal <- left_join(municipal, uf, by="UF")[, c(1:2,238:241,3:237)]
+dicionario$SIGLA <- toupper(gsub(" ","",dicionario$SIGLA))
+```
 
+Dados federais ausentes por ano
+```{r}
+federal %>%
+    group_by(ANO) %>%
+    filter_all(any_vars(is.na(.))) %>%
+    select_if(funs(any(is.na(.)))) %>%
+    summarise_all(funs(sum(is.na(.)))) %>% as.data.frame()
+```
+
+Dados estaduais ausentes por ano
+```{r}
+estadual %>%
+    group_by(ANO) %>%
+    filter_all(any_vars(is.na(.))) %>%
+    select_if(funs(any(is.na(.)))) %>%
+    summarise_all(funs(sum(is.na(.)))) %>% as.data.frame()
+```
+
+Dados municipais ausentes por ano
 ```{r}
 municipal %>%
-    filter(ANO==1991) %>%
-    mutate(iescolaridade = round(T_FUND18M / 100, 3),
-           ifreqpop = round( ((T_FREQ5A6 + T_FUND11A13 + T_FUND15A17 + T_MED18A20) / 4) / 100, 3),
-           idhme = round( ( iescolaridade * ifreqpop ^ 2 ) ^ (1/3) , 3),
-           idhml = round( (ESPVIDA - 25) / (85 - 25), 3),
-           idhmr = round( (log(RDPC) - log(8)) / (log(4033)- log(8)), 3),
-           idhm = round( (idhme * idhml * idhmr) ^ (1/3), 3)) %>%
-    select(I_ESCOLARIDADE, iescolaridade, I_FREQ_PROP, ifreqpop, IDHM_E, idhme, IDHM_L, idhml, IDHM_R, idhmr, IDHM, idhm) %>% head
+    group_by(ANO) %>%
+    filter_all(any_vars(is.na(.))) %>%
+    select_if(funs(any(is.na(.)))) %>%
+    summarise_all(funs(sum(is.na(.)))) %>% as.data.frame()
+```
+
+Total de municípios por unidade da federação
+```{r}
+municipal %>% group_by(ANO, UFN) %>% summarise(TOTAL=n()) %>% spread(key = ANO, value = TOTAL) %>% as.data.frame()
+```
+
+Total de municípios por região
+```{r}
+municipal %>% group_by(ANO, REGIAON) %>% summarise(TOTAL=n()) %>% spread(key = ANO, value = TOTAL) %>% as.data.frame()
+```
+
+Total de pessoas por ano, gênero, área rural e urbana, total geral e diferenças
+```{r}
+municipal %>% group_by(ANO) %>%
+    summarise_at(vars(PESOTOT, MULHERTOT, HOMEMTOT, PESORUR, PESOURB), sum) %>%
+    mutate(DIFERENCA_SEXO = PESOTOT-MULHERTOT-HOMEMTOT, DIFERENCA_AREA = PESOTOT-PESORUR-PESOURB) %>%
+    select(PESOTOT, MULHERTOT, HOMEMTOT, DIFERENCA_SEXO, PESORUR, PESOURB, DIFERENCA_AREA) %>% as.data.frame()
+```
+
+Recalculo do IDHM e seus sub-índices IDHM_E, IDHM_L, IDHM_R
+```{r}
+recalculado <- municipal %>%
+    mutate(I_ESCOLARIDADE2 = round(T_FUND18M / 100, 3),
+           I_FREQ_PROP2 = round( ((T_FREQ5A6 + T_FUND11A13 + T_FUND15A17 + T_MED18A20) / 4) / 100, 3),
+           IDHM_E2 = round( ( I_ESCOLARIDADE2 * I_FREQ_PROP2 ^ 2 ) ^ (1/3) , 3),
+           IDHM_L2 = round( (ESPVIDA - 25) / (85 - 25), 3),
+           IDHM_R2 = round( (log(RDPC) - log(8)) / (log(4033)- log(8)), 3),
+           IDHM2 = round( (IDHM_E2 * IDHM_L2 * IDHM_R2) ^ (1/3), 3)) %>%
+    select(ANO, UFN, MUNICIPIO, I_ESCOLARIDADE, I_ESCOLARIDADE2, I_FREQ_PROP, I_FREQ_PROP2, IDHM_E, IDHM_E2, IDHM_L, IDHM_L2, IDHM_R, IDHM_R2, IDHM, IDHM2)
+```
+
+Totais de municípios com divergência no recálculo do IDHM e suas proporções, por UF e ano 
+```{r}
+divergentes <- recalculado %>%
+    filter(I_ESCOLARIDADE != I_ESCOLARIDADE2 |
+               I_FREQ_PROP != I_FREQ_PROP2 |
+               IDHM_E != IDHM_E2 |
+               IDHM_L != IDHM_L2 |
+               IDHM_R != IDHM_R2)
+cbind(table(divergentes$UFN, divergentes$ANO),
+      round(table(divergentes$UFN, divergentes$ANO) / table(municipal$UFN, municipal$ANO),2))
 ```
 
 # Análise Exploratória
 
-```{r}
+## População
+```{r fig.height=7, fig.width=7}
+grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "População",
+             ggplot(federal, aes(ANO, PESOTOT/1e6, group=ANO)) +
+                 labs(x="Ano", y="População (milhões)") + geom_col(),
+             ggplot(estadual, aes(REGIAO, PESOTOT/1e6, fill=REGIAO)) +
+                 labs(x="Região", y="População (milhões)", fill="Região") + geom_col() +
+                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_grid(cols=vars(ANO)),
+             ggplot(estadual, aes(UFN, PESOTOT/1e6, fill=REGIAO)) + 
+                 labs(x="Unidade da Federação", y="População (milhões)") + geom_col(show.legend = FALSE) +
+                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_grid(rows=vars(ANO)))
+```
 
+## Expectativa de vida
+```{r fig.height=7, fig.width=7}
+grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expectativa de vida",
+             ggplot(federal, aes(ANO, ESPVIDA, group=ANO)) +
+                 labs(x="Ano", y="Expectativa de vida (anos)") + geom_col(),
+             municipal %>% group_by(ANO, REGIAO) %>%
+                 summarise(ESPVIDA = sum(ESPVIDA*PESOTOT)/sum(PESOTOT)) %>%
+                 ggplot(aes(REGIAO, ESPVIDA, fill=REGIAO)) +
+                 labs(x="Região", y="Expectativa de vida (anos)\n(média ponderada)", fill="Região") + geom_col() +
+                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_grid(cols=vars(ANO)),
+             ggplot(estadual, aes(UFN, ESPVIDA, fill=REGIAO)) +
+                 labs(x="Unidade da Federação", y="Expectativa de vida (anos)") + geom_col(show.legend = FALSE) +
+                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_grid(rows=vars(ANO)))
+```
+
+## Renda per capita
+```{r fig.height=7, fig.width=7}
+grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Renda per capita",
+             ggplot(federal, aes(ANO, RDPC, group=ANO)) +
+                 labs(x="Ano", y="Renda per capita (R$)") + geom_col(),
+             municipal %>% group_by(ANO, REGIAO) %>%
+                 summarise(RDPC = sum(RDPC*PESOTOT)/sum(PESOTOT)) %>%
+                 ggplot(aes(REGIAO, RDPC, fill=REGIAO)) +
+                 labs(x="Região", y="Renda per capita (R$)\n(média ponderada)", fill="Região") + geom_col() +
+                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_grid(cols=vars(ANO)),
+             ggplot(estadual, aes(UFN, RDPC, fill=REGIAO)) +
+                 labs(x="Unidade da Federação", y="Renda per capita (R$)") + geom_col(show.legend = FALSE) +
+                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_grid(rows=vars(ANO)))
+```
+
+## Expectativa de anos de estudo
+```{r fig.height=7, fig.width=7}
+grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expectativa de anos de estudo",
+             ggplot(federal, aes(ANO, E_ANOSESTUDO, group=ANO)) +
+                 labs(x="Ano", y="Expectativa de estudo (anos)") + geom_col(),
+             municipal %>% group_by(ANO, REGIAO) %>%
+                 summarise(RDPC = sum(E_ANOSESTUDO*PESOTOT)/sum(PESOTOT)) %>%
+                 ggplot(aes(REGIAO, RDPC, fill=REGIAO)) + 
+                 labs(x="Região", y="Expectativa de estudo (anos)\n(média ponderada)", fill="Região") + geom_col() +
+                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_grid(cols=vars(ANO)),
+             ggplot(estadual, aes(UFN, E_ANOSESTUDO, fill=REGIAO)) + 
+                 labs(x="Unidade da Federação", y="Expectativa de estudo (anos)") + geom_col(show.legend = FALSE) +
+                 theme(axis.text.x = element_text(angle = 45, hjust = 1)) + facet_grid(rows=vars(ANO)))
+```
+
+## Dispersão da fecundidade e longevidade por unidade da federação
+```{r fig.height=5, fig.width=15}
+ggplot(estadual, aes(FECTOT, ESPVIDA)) +
+    labs(title="Fecundidade X Longevidade por unidade da federação",
+         x="Taxa de Fecundidade (média de filhos por mulher)",
+         y="Expectativa de vida (anos)", size="População", color="Região") +
+    geom_point(aes(size=PESOTOT, color=REGIAO)) +
+    geom_text(aes(label=UFS), size=3, hjust=0, vjust=0) +
+    facet_grid(cols=vars(ANO)) + geom_smooth(method="loess", color="black", size=.5, se = FALSE)
+```
+
+## Dispersão dos sub-índices do IDHM: Educação, Renda e Longevidade
+```{r fig.height=5, fig.width=15}
+ggplot(estadual, aes(IDHM_E, IDHM_R)) +
+    labs(title="IDHM: Educação X Renda", size="População", color="Região") +
+    geom_point(aes(size=PESOTOT, color=REGIAO)) +
+    geom_text(aes(label=UFS), size=3, hjust=0, vjust=0) +
+    facet_grid(cols=vars(ANO)) + geom_smooth(method="loess", color="black", size=.5, se = FALSE)
+```
+
+```{r fig.height=5, fig.width=15}
+ggplot(estadual, aes(IDHM_E, IDHM_L)) +
+    labs(title="IDHM: Educação X Longevidade", size="População", color="Região") +
+    geom_point(aes(size=PESOTOT, color=REGIAO)) +
+    geom_text(aes(label=UFS), size=3, hjust=0, vjust=0) +
+    facet_grid(cols=vars(ANO)) + geom_smooth(method="loess", color="black", size=.5, se = FALSE)
+```
+
+```{r fig.height=5, fig.width=15}
+ggplot(estadual, aes(IDHM_R, IDHM_L)) +
+    labs(title="IDHM: Renda X Longevidade", size="População", color="Região") +
+    geom_point(aes(size=PESOTOT, color=REGIAO)) +
+    geom_text(aes(label=UFS), size=3, hjust=0, vjust=0) +
+    facet_grid(cols=vars(ANO)) + geom_smooth(method="loess", color="black", size=.5, se = FALSE)
+```
+
+## Gráficos de pares segmentados por categorias de variáveis
+
+São utilizados os dados de 2010.
+```{r}
+municipal2010 <- filter(municipal, ANO=="2010")[1:1000,]
+gglower <- function(data, mapping, point=list(), smooth=list(), ...) {
+    ggplot(data = data, mapping = mapping, ...) +
+        do.call(geom_point, point) +
+        do.call(geom_smooth, smooth)
+}
+ggp <- function(data, ...) {
+    ggpairs(data, progress=FALSE,
+            lower=list(combo = wrap("facethist", bins=30),
+                       continuous = wrap(gglower, point=list(size=1), smooth=list(method="loess", color="red"))), ...)
+}
+```
+
+### Demografia e saúde
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="demografia e saúde", c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=10, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Demografia e saúde")
+```
+
+### Educação
+
+#### Expectativa de anos de estudo e grau de analfabetismo
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de analfabetismo"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=10, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Educação: Expectativa de anos de estudo e grau de analfabetismo")
+```
+
+#### Expectativa de anos de estudo e grau de escolaridade
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de escolaridade"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=15, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Educação: Expectativa de anos de estudo e grau de escolaridade")
+```
+
+#### Expectativa de anos de estudo e atraso idade-série
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "atraso idade-série"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=15, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Educação: Expectativa de anos de estudo e atraso idade-série")
 ```
 
 
+#### Expectativa de anos de estudo e atendimento ou frequência simples
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "atendimento ou frequência simples"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=15, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Estudo: Expectativa de anos de estudo e atendimento ou frequência simples")
+```
+
+#### Expectativa de anos de estudo e frequência qualificada
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "frequência qualificada"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=20, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Estudo: Expectativa de anos de estudo e frequência qualificada")
+```
+
+### Habitação
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="habitação", c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=10, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Habitação")
+```
+
+### Renda
+
+#### Nível de renda e desigualdade
+```{r}
+vars <- dicionario %>%
+    filter(CATEGORIA=="renda" &
+               SUBCATEGORIA %in% c("nível de renda", "desigualdade de renda") )%>% #& grepl("CORTE|GINI|RDPC|RIND|RMPOB|RPOB|THEIL", SIGLA)) %>%
+    select(c(2,3,5))
+knitr::kable(vars, row.names = FALSE)
+```
+
+```{r fig.height=20, fig.width=20, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Renda: Nível de renda e desigualdade")
+```
+
+#### Pobreza e desigualdade
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="renda" & dicionario$SUBCATEGORIA %in% c("pobreza", "desigualdade de renda"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=10, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Renda: Pobreza e desigualdade")
+```
+
+#### Caracterização dos ocupados
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="renda" & dicionario$SUBCATEGORIA %in% c("caracterização dos ocupados"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=15, fig.width=20, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Renda: Caracterização dos ocupados")
+```
+
+### População
+
+#### Gênero masculino e faixa etária
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="população" & dicionario$SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("HOME", dicionario$SIGLA), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=15, fig.width=20, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "População: Gênero masculino e faixa etária")
+```
+
+#### Gênero feminino e faixa etária
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="população" & dicionario$SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("MULH", dicionario$SIGLA), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=15, fig.width=20, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "População: Gênero feminino e faixa etária")
+```
+
+#### Gênero, PEA, residente, permanente, rural, urbana e renda nula
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="população" & dicionario$SUBCATEGORIA %in% c("economicamente ativa (PEA)", "residente e faixa etária", "residente, faixa etária e gênero", "residente rural", "residente total", "residente urbana", "residente permanente", "residente permanente exceto renda nula"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=20, fig.width=20, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "População: PEA, residente, permanente, rural, urbana e renda nula")
+```
+
+### Trabalho
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="trabalho" & dicionario$SUBCATEGORIA %in% c("atividade e desocupação"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=10, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Trabalho")
+```
+
+### Vulnerabilidade
+```{r}
+knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="vulnerabilidade", c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=10, fig.width=15, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "Vulnerabilidade")
+```
+
+### IDHM
+           
+```{r}
+knitr::kable(vars <- dicionario[dicionario$SIGLA %in% c("IDHM", "IDHM_E", "IDHM_L", "IDHM_R",
+                                                        "I_ESCOLARIDADE", "T_FUND18M", "I_FREQ_PROP", "T_FREQ5A6", "T_FUND11A13", "T_FUND15A17", "T_MED18A20",
+                                                        "ESPVIDA",
+                                                        "RDPC"), c(2,3,5)], row.names = FALSE)
+```
+
+```{r fig.height=15, fig.width=15, cache=TRUE}
+select(municipal2010, vars$SIGLA) %>%
+    ggp(title = "IDHM")
+```
