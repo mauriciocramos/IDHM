@@ -95,7 +95,7 @@ registerDoParallel(cluster)
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, trControl = trainControl(method = "none", verboseIter = TRUE, timingSamps = 1))
+fit <- train(ESPVIDA ~ ., training, trControl = trainControl(method = "none", verboseIter = TRUE))
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
@@ -115,27 +115,37 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=2, search="grid", verboseIter = TRUE, timingSamps = 1), tuneGrid=NULL, tuneLength=3)
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=2, search="grid", verboseIter = TRUE), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
-### 4 - Defaul Random Forest e reamostragem por validação cruzada 3 k-fold
+### 4 - Default Random Forest e reamostragem por validação cruzada 3 k-fold
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=3, search="grid"), tuneGrid=NULL, tuneLength=3)
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=3, search="grid", verboseIter = TRUE), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
-### 5
+### 5 - Default Random Forest e reamostragem por validação cruzada 5 k-fold
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=5, search="grid"), tuneGrid=NULL, tuneLength=3)
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=5, search="grid", verboseIter = TRUE), tuneGrid=NULL, tuneLength=3)
+proc.time() - ptm
+fit
+postResample(predict(fit, testing), testing$ESPVIDA)
+```
+
+### 6 - Default Random Forest e reamostragem por validação cruzada 10 k-fold
+```{r}
+set.seed(1)
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=5, search="grid", verboseIter = TRUE), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
