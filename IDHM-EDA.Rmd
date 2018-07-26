@@ -20,7 +20,7 @@ t0<-proc.time()
 
 # Recursos computacionais
 
-Informações do sistema:
+Sistema Operacional:
 ```{r}
 paste(Sys.info()[1:3], collapse = " ")
 ```
