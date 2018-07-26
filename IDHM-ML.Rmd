@@ -1,0 +1,176 @@
+---
+title: "Análise preditiva da expectativa de vida municipal do Brasil"
+author: "Maurício Collaça Ramos"
+date: "12 de Julho de 2018"
+output: 
+  html_document: 
+    code_folding: hide
+    number_sections: yes
+    toc: yes
+    toc_float: true
+    toc_collapsed: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = "")
+options(width = 130)
+```
+
+# Recursos computacionais
+
+Informações do sistema:
+```{r}
+paste(Sys.info()[1:3], collapse = " ")
+```
+
+Processadores:
+```{r}
+parallel::detectCores()
+```
+
+Memória:
+```{r}
+if(Sys.info()[1]=="Windows") paste(round(memory.limit()/1024,1),"Gb") else {
+    system("free -h")
+    system(paste0("cat /proc/",Sys.getpid(),"/status | grep VmSize"))
+}
+```
+
+Linguagem:
+```{r}
+R.version.string
+```
+
+Pacotes R:
+```{r}
+packages <- c("ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel")
+loaded <- suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
+if(!all(loaded)) {
+    missingPackages <- packages[loaded==FALSE]
+    message("Installing package(s) ", paste(missingPackages, collapse=", "))
+    install.packages(missingPackages, dependencies = TRUE)
+    installed <- suppressWarnings(sapply(missingPackages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
+    if(!all(installed)) stop("Package(s) not installed: ", paste(missingPackages[installed==FALSE], collapse=", "))
+    
+}
+packageVersions <- sapply(packages, function(x) paste0(as.character(packageVersion(x)), collapse="."))
+noquote(packageVersions)
+```
+
+# Carga dos dados brutos do atlas municipal
+
+```{r}
+municipal <- read.csv2("municipal.csv", encoding = "UTF-8",
+                       colClasses=c(rep("factor",2),rep("character",3),rep("numeric", 232)))
+names(municipal) <- toupper(iconv(names(municipal), to="ASCII//TRANSLIT"))
+```
+
+# Seleção das variáveis
+```{r}
+data <- municipal2010[, -(1:8)]
+```
+
+# Particionamento treino/teste
+
+```{r}
+inTraining <- createDataPartition(data$ESPVIDA, p = .60, list = FALSE)
+training <- data[ inTraining,]
+testing  <- data[-inTraining,]
+```
+
+
+
+### Conhecimento subjetivo
+### Normalização dos valores
+### Análise de Componentes Principais
+
+## Seleção de algoritmos e hiperparâmetros
+```{r}
+cluster <- makeCluster(detectCores())
+registerDoParallel(cluster)
+```
+
+### 1 - Default Random Forest sem reamostragem
+```{r}
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., training, trControl = trainControl(method = "none", verboseIter = TRUE, timingSamps = 1))
+proc.time() - ptm
+fit
+postResample(predict(fit, testing), testing$ESPVIDA)
+```
+
+### 2 - Default Random Forest com reamostragem por bootstrap em 25 iterações
+```{r}
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., training) # trainControl(method="boot", number=25)
+proc.time() - ptm
+fit
+postResample(predict(fit, testing), testing$ESPVIDA)
+```
+
+### 3 - Default Random Forest com reamostragem por validação cruzada em 2 folds
+```{r}
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=2, search="grid"), tuneGrid=NULL, tuneLength=3)
+proc.time() - ptm
+fit
+postResample(predict(fit, testing), testing$ESPVIDA)
+```
+
+### 4 - Defaul Random Forest e reamostragem por validação cruzada 3 k-fold
+```{r}
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=3, search="grid"), tuneGrid=NULL, tuneLength=3)
+proc.time() - ptm
+fit
+postResample(predict(fit, testing), testing$ESPVIDA)
+```
+
+### 5
+```{r}
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=5, search="grid"), tuneGrid=NULL, tuneLength=3)
+proc.time() - ptm
+fit
+postResample(predict(fit, testing), testing$ESPVIDA)
+```
+
+```{r}
+stopCluster(cluster)
+registerDoSEQ()
+```
+
+
+
+
+
+
+
+
+
+
+
+The training summary shows the accuracy of the best model resulted from 10 k-fold cross-validation and the final `mtry` parameter.
+```{r}
+fit
+```
+
+The confusion matrix estimated from the training resamples:
+```{r, comment=""}
+confusionMatrix.train(fit)
+```
+
+On the training data, the expected out of sample error is:
+```{r}
+(expectedError <- (1 - fit$results$Accuracy[which.max(fit$results$Accuracy)]))
+```
+
+Predicting on the probing set.
+```{r}
+probePredict <- predict(fit, probing)
+```
+
+The confusion matrix calculated from the probing set suggests that the expected out of sample error could be even closer to zero when doing the final testing.
+```{r, comment=""}
+confusionMatrix(probePredict, probing$classe)
+```
