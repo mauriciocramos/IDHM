@@ -14,6 +14,7 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, comment = "")
 options(width = 130)
+t0<-proc.time()
 ```
 
 # Recursos computacionais
@@ -471,3 +472,9 @@ knitr::kable(vars <- dicionario[dicionario$SIGLA %in% c("IDHM", "IDHM_E", "IDHM_
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "IDHM")
 ```
+
+```{r, echo=FALSE}
+date()
+proc.time() - t0
+```
+
