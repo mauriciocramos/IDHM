@@ -33,8 +33,8 @@ parallel::detectCores()
 Memória:
 ```{r}
 if(Sys.info()[1]=="Windows") paste(round(memory.limit()/1024,1),"Gb") else {
-    system("free -h")
-    system(paste0("cat /proc/",Sys.getpid(),"/status | grep VmSize"))
+    cat(system("free -h", intern = TRUE), sep = '\n')
+    cat(system(paste0("cat /proc/", Sys.getpid() ,"/status | grep VmSize")), sep = '\n')
 }
 ```
 
