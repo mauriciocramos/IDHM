@@ -73,6 +73,7 @@ data <- municipal[municipal$ANO=="2010", -(1:5)]
 # Particionamento treino/teste
 
 ```{r}
+set.seed(1)
 inTraining <- createDataPartition(data$ESPVIDA, p = .60, list = FALSE)
 training <- data[ inTraining,]
 testing  <- data[-inTraining,]
