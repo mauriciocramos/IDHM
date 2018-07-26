@@ -14,6 +14,7 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, comment = "")
 options(width = 130)
+t0<-proc.time()
 ```
 
 # Recursos computacionais
@@ -66,86 +67,135 @@ names(municipal) <- toupper(iconv(names(municipal), to="ASCII//TRANSLIT"))
 ```
 
 # Seleção das variáveis
+
+Remoção das variáveis consideradas irrelevantes, redundantes ou mesmo prejudiciais ao modelo de predição proposto, como base na [análise exploratória](https://mauriciocramos.github.io/IDHM/IDHM-EDA.html).
+
+Seleção dos registros de 2010
 ```{r}
 data <- municipal[municipal$ANO=="2010", -(1:5)]
 ```
 
-# Particionamento treino/teste
+Remoção das variáveis redundantes dentro de cada categoria
+```{r}
+#TODO
+```
+
+# Pré-processamento das variáveis
+
+## Normalização dos valores
+```{r}
+#TODO
+```
+
+## Análise de Componentes Principais
+```{r}
+#TODO
+```
+
+# Particionamento dos dados de treino e teste
 
 ```{r}
+#TODO: https://topepo.github.io/caret/subsampling-for-class-imbalances.html
+#TODO: https://topepo.github.io/caret/data-splitting.html#splitting-based-on-the-predictors
+#TODO: https://topepo.github.io/caret/data-splitting.html#simple-splitting-with-important-groups
+
 set.seed(1)
 inTraining <- createDataPartition(data$ESPVIDA, p = .60, list = FALSE)
 training <- data[ inTraining,]
 testing  <- data[-inTraining,]
 ```
 
-
-
-### Conhecimento subjetivo
-### Normalização dos valores
-### Análise de Componentes Principais
-
-## Seleção de algoritmos e hiperparâmetros
+# Seleção de algoritmos e hiperparâmetros
 ```{r}
 cluster <- makeCluster(detectCores())
 registerDoParallel(cluster)
 ```
 
-### 1 - Default Random Forest sem reamostragem
+## 1 - Random Forest sem reamostragem
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, trControl = trainControl(method = "none", verboseIter = TRUE))
+fit <- train(ESPVIDA ~ ., training, trControl = trainControl(method = "none", verboseIter=TRUE))
+proc.time() - ptm #note 43s icict 28s
+fit
+postResample(predict(fit, testing), testing$ESPVIDA)
+```
+
+## 2 - Random Forest com reamostragem em validação cruzada de 2 folds
+```{r}
+set.seed(1)
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=2, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
+proc.time() - ptm #note 748s icict 419s
+fit
+postResample(predict(fit, testing), testing$ESPVIDA)
+```
+
+## 3 - Random Forest com reamostragem em validação cruzada de 5 folds
+```{r}
+set.seed(1)
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=5, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
-### 2 - Default Random Forest com reamostragem por bootstrap em 25 iterações
+## 4 - Random Forest com reamostragem em validação cruzada de 10 folds
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training) # trainControl(method="boot", number=25)
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=10, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
-### 3 - Default Random Forest com reamostragem por validação cruzada em 2 folds
+## 5 - Random Forest com reamostragem em bootstrap de 2 iterações
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=2, search="grid", verboseIter = TRUE), tuneGrid=NULL, tuneLength=3)
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=2, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
-### 4 - Default Random Forest e reamostragem por validação cruzada 3 k-fold
+## 6 - Random Forest com reamostragem em bootstrap de 5 iterações
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=3, search="grid", verboseIter = TRUE), tuneGrid=NULL, tuneLength=3)
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=5, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
-### 5 - Default Random Forest e reamostragem por validação cruzada 5 k-fold
+## 7 - Random Forest com reamostragem em bootstrap de 10 iterações
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=5, search="grid", verboseIter = TRUE), tuneGrid=NULL, tuneLength=3)
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=10, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
-### 6 - Default Random Forest e reamostragem por validação cruzada 10 k-fold
+## 8 - Random Forest com reamostragem em bootstrap de 20 iterações
 ```{r}
 set.seed(1)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=5, search="grid", verboseIter = TRUE), tuneGrid=NULL, tuneLength=3)
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=20, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
+proc.time() - ptm
+fit
+postResample(predict(fit, testing), testing$ESPVIDA)
+```
+
+## 9 - Random Forest com reamostragem em bootstrap de 25 iterações
+```{r}
+set.seed(1)
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=25, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
@@ -156,37 +206,7 @@ stopCluster(cluster)
 registerDoSEQ()
 ```
 
-
-
-
-
-
-
-
-
-
-
-The training summary shows the accuracy of the best model resulted from 10 k-fold cross-validation and the final `mtry` parameter.
-```{r}
-fit
-```
-
-The confusion matrix estimated from the training resamples:
-```{r, comment=""}
-confusionMatrix.train(fit)
-```
-
-On the training data, the expected out of sample error is:
-```{r}
-(expectedError <- (1 - fit$results$Accuracy[which.max(fit$results$Accuracy)]))
-```
-
-Predicting on the probing set.
-```{r}
-probePredict <- predict(fit, probing)
-```
-
-The confusion matrix calculated from the probing set suggests that the expected out of sample error could be even closer to zero when doing the final testing.
-```{r, comment=""}
-confusionMatrix(probePredict, probing$classe)
+```{r, echo=FALSE}
+date()
+proc.time() - t0
 ```

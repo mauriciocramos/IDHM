@@ -163,7 +163,7 @@ cbind(table(divergentes$UFN, divergentes$ANO),
 # Análise Exploratória
 
 ## População
-```{r fig.height=7, fig.width=7}
+```{r fig.height=7, fig.width=7, cache=TRUE}
 grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "População",
              ggplot(federal, aes(ANO, PESOTOT/1e6, group=ANO)) +
                  labs(x="Ano", y="População (milhões)") + geom_col(),
@@ -176,7 +176,7 @@ grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Popul
 ```
 
 ## Expectativa de vida
-```{r fig.height=7, fig.width=7}
+```{r fig.height=7, fig.width=7, cache=TRUE}
 grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expectativa de vida",
              ggplot(federal, aes(ANO, ESPVIDA, group=ANO)) +
                  labs(x="Ano", y="Expectativa de vida (anos)") + geom_col(),
@@ -191,7 +191,7 @@ grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expec
 ```
 
 ## Renda per capita
-```{r fig.height=7, fig.width=7}
+```{r fig.height=7, fig.width=7, cache=TRUE}
 grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Renda per capita",
              ggplot(federal, aes(ANO, RDPC, group=ANO)) +
                  labs(x="Ano", y="Renda per capita (R$)") + geom_col(),
@@ -206,7 +206,7 @@ grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Renda
 ```
 
 ## Expectativa de anos de estudo
-```{r fig.height=7, fig.width=7}
+```{r fig.height=7, fig.width=7, cache=TRUE}
 grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expectativa de anos de estudo",
              ggplot(federal, aes(ANO, E_ANOSESTUDO, group=ANO)) +
                  labs(x="Ano", y="Expectativa de estudo (anos)") + geom_col(),
@@ -221,7 +221,7 @@ grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expec
 ```
 
 ## Dispersão da fecundidade e longevidade por unidade da federação
-```{r fig.height=5, fig.width=15}
+```{r fig.height=5, fig.width=15, cache=TRUE}
 ggplot(estadual, aes(FECTOT, ESPVIDA)) +
     labs(title="Fecundidade X Longevidade por unidade da federação",
          x="Taxa de Fecundidade (média de filhos por mulher)",
@@ -232,7 +232,7 @@ ggplot(estadual, aes(FECTOT, ESPVIDA)) +
 ```
 
 ## Dispersão dos sub-índices do IDHM: Educação, Renda e Longevidade
-```{r fig.height=5, fig.width=15}
+```{r fig.height=5, fig.width=15, cache=TRUE}
 ggplot(estadual, aes(IDHM_E, IDHM_R)) +
     labs(title="IDHM: Educação X Renda", size="População", color="Região") +
     geom_point(aes(size=PESOTOT, color=REGIAO)) +
