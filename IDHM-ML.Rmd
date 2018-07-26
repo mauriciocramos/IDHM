@@ -7,8 +7,9 @@ output:
     code_folding: hide
     number_sections: yes
     toc: yes
+    toc_depth: 3
     toc_float: true
-    toc_collapsed: false
+        collapsed: false
 ---
 
 ```{r setup, include=FALSE}
