@@ -20,6 +20,8 @@ Autoria:
 [IPEA - Instituto de Pesquisa Econômica Aplicada](http://www.ipea.gov.br/)  
 [Fundação João Pinheiro - Governo de Minas Gerais](http://www.fjp.mg.gov.br/)
 
-##[Análise exploratória do Atlas dos Municípios](https://mauriciocramos.github.io/IDHM/IDHM-EDA.html)
+## Resultados
 
-##[Análise preditiva da expectativa de vida](https://mauriciocramos.github.io/IDHM/IDHM-ML.html)
+[Análise exploratória do Atlas dos Municípios](https://mauriciocramos.github.io/IDHM/IDHM-EDA.html)
+
+[Análise preditiva da expectativa de vida](https://mauriciocramos.github.io/IDHM/IDHM-ML.html)
