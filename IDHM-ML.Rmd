@@ -111,7 +111,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ### 3 - Default Random Forest com reamostragem por validação cruzada em 2 folds
 ```{r}
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=2, search="grid"), tuneGrid=NULL, tuneLength=3)
+fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=2, search="grid", verboseIter = TRUE, timingSamps = 1), tuneGrid=NULL, tuneLength=3)
 proc.time() - ptm
 fit
 postResample(predict(fit, testing), testing$ESPVIDA)
