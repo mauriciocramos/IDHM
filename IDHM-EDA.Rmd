@@ -92,39 +92,26 @@ municipal <- left_join(municipal, uf, by="UF")[, c(1:2,238:241,3:237)]
 dicionario$SIGLA <- toupper(gsub(" ","",dicionario$SIGLA))
 ```
 
-Dados federais ausentes por ano
-```{r}
-federal %>%
-    group_by(ANO) %>%
-    filter_all(any_vars(is.na(.))) %>%
-    select_if(funs(any(is.na(.)))) %>%
-    summarise_all(funs(sum(is.na(.)))) %>% as.data.frame()
-```
-
-Dados estaduais ausentes por ano
-```{r}
-estadual %>%
-    group_by(ANO) %>%
-    filter_all(any_vars(is.na(.))) %>%
-    select_if(funs(any(is.na(.)))) %>%
-    summarise_all(funs(sum(is.na(.)))) %>% as.data.frame()
-```
-
 Dados municipais ausentes por ano
 ```{r}
 municipal %>%
     group_by(ANO) %>%
     filter_all(any_vars(is.na(.))) %>%
     select_if(funs(any(is.na(.)))) %>%
-    summarise_all(funs(sum(is.na(.)))) %>% as.data.frame()
+    summarise_all(funs(sum(is.na(.)))) %>%
+    gather(VARIAVEL, REGISTROS, -ANO) %>%
+    spread(ANO, REGISTROS) %>%
+    left_join(dicionario, by=c("VARIAVEL"="SIGLA")) %>%
+    select(c(1,5,2,3)) %>%
+    knitr::kable()
 ```
 
-Total de municípios por unidade da federação
+Total de municípios por unidade da federação por ano
 ```{r}
 municipal %>% group_by(ANO, UFN) %>% summarise(TOTAL=n()) %>% spread(key = ANO, value = TOTAL) %>% as.data.frame()
 ```
 
-Total de municípios por região
+Total de municípios por região por ano
 ```{r}
 municipal %>% group_by(ANO, REGIAON) %>% summarise(TOTAL=n()) %>% spread(key = ANO, value = TOTAL) %>% as.data.frame()
 ```
@@ -134,7 +121,7 @@ Total de pessoas por ano, gênero, área rural e urbana, total geral e diferenç
 municipal %>% group_by(ANO) %>%
     summarise_at(vars(PESOTOT, MULHERTOT, HOMEMTOT, PESORUR, PESOURB), sum) %>%
     mutate(DIFERENCA_SEXO = PESOTOT-MULHERTOT-HOMEMTOT, DIFERENCA_AREA = PESOTOT-PESORUR-PESOURB) %>%
-    select(PESOTOT, MULHERTOT, HOMEMTOT, DIFERENCA_SEXO, PESORUR, PESOURB, DIFERENCA_AREA) %>% as.data.frame()
+    select(ANO, PESOTOT, MULHERTOT, HOMEMTOT, DIFERENCA_SEXO, PESORUR, PESOURB, DIFERENCA_AREA) %>% as.data.frame()
 ```
 
 Recalculo do IDHM e seus sub-índices IDHM_E, IDHM_L, IDHM_R
