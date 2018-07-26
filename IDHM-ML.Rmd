@@ -113,7 +113,7 @@ registerDoParallel(cluster)
 ```
 
 ## 1 - Random Forest sem reamostragem
-```{r}
+```{r, cache=TRUE}
 set.seed(1)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., training, trControl = trainControl(method = "none", verboseIter=TRUE))
@@ -123,7 +123,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
 ## 2 - Random Forest com reamostragem em validação cruzada de 2 folds
-```{r}
+```{r, cache=TRUE}
 set.seed(1)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=2, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
@@ -133,7 +133,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
 ## 3 - Random Forest com reamostragem em validação cruzada de 5 folds
-```{r}
+```{r, cache=TRUE}
 set.seed(1)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=5, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
@@ -143,7 +143,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
 ## 4 - Random Forest com reamostragem em validação cruzada de 10 folds
-```{r}
+```{r, cache=TRUE}
 set.seed(1)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=10, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
@@ -153,7 +153,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
 ## 5 - Random Forest com reamostragem em bootstrap de 2 iterações
-```{r}
+```{r, cache=TRUE}
 set.seed(1)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=2, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
@@ -163,7 +163,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
 ## 6 - Random Forest com reamostragem em bootstrap de 5 iterações
-```{r}
+```{r, cache=TRUE}
 set.seed(1)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=5, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
@@ -173,7 +173,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
 ## 7 - Random Forest com reamostragem em bootstrap de 10 iterações
-```{r}
+```{r, cache=TRUE}
 set.seed(1)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=10, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
@@ -183,7 +183,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
 ## 8 - Random Forest com reamostragem em bootstrap de 20 iterações
-```{r}
+```{r, cache=TRUE}
 set.seed(1)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=20, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
@@ -193,7 +193,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
 ## 9 - Random Forest com reamostragem em bootstrap de 25 iterações
-```{r}
+```{r, cache=TRUE}
 set.seed(1)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=25, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
