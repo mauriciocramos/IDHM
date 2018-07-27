@@ -1,5 +1,5 @@
 ---
-title: "Análise preditiva da expectativa de vida municipal do Brasil"
+title: "Análise preditiva da expectativa de vida no Brasil"
 author: "Maurício Collaça Ramos"
 date: "12 de Julho de 2018"
 output: 
@@ -32,10 +32,7 @@ parallel::detectCores()
 
 Memória:
 ```{r}
-if(Sys.info()[1]=="Windows") paste(round(memory.limit()/1024,1),"Gb") else {
-    cat(system("free -h", intern = TRUE), sep='\n')
-    cat(system(paste0("cat /proc/", Sys.getpid() ,"/status | grep VmSize"), intern = TRUE), sep='\n')
-}
+if(Sys.info()[1]=="Windows") paste(round(memory.limit()/1024,1),"Gb") else cat(system("free -h", intern = TRUE), sep='\n')
 ```
 
 Linguagem:

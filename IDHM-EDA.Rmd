@@ -1,5 +1,5 @@
 ---
-title: "Análise exploratória do desenvolvimento humano municipal do Brasil"
+title: "Análise exploratória do desenvolvimento humano municipal no Brasil"
 author: "Maurício Collaça Ramos"
 date: "12 de Julho de 2018"
 output: 
@@ -32,10 +32,7 @@ parallel::detectCores()
 
 Memória:
 ```{r}
-if(Sys.info()[1]=="Windows") paste(round(memory.limit()/1024,1),"Gb") else {
-    cat(system("free -h", intern = TRUE), sep='\n')
-    cat(system(paste0("cat /proc/", Sys.getpid() ,"/status | grep VmSize"), intern = TRUE), sep='\n')
-}
+if(Sys.info()[1]=="Windows") paste(round(memory.limit()/1024,1),"Gb") else cat(system("free -h", intern = TRUE), sep='\n')
 ```
 
 Linguagem:
@@ -151,7 +148,7 @@ cbind(table(divergentes$UFN, divergentes$ANO),
 # Análise Exploratória
 
 ## População
-```{r fig.height=7, fig.width=7, cache=TRUE}
+```{r populacao, fig.height=7, fig.width=7, cache=TRUE}
 grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "População",
              ggplot(federal, aes(ANO, PESOTOT/1e6, group=ANO)) +
                  labs(x="Ano", y="População (milhões)") + geom_col(),
@@ -164,7 +161,7 @@ grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Popul
 ```
 
 ## Expectativa de vida
-```{r fig.height=7, fig.width=7, cache=TRUE}
+```{r expectativadevida, fig.height=7, fig.width=7, cache=TRUE}
 grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expectativa de vida",
              ggplot(federal, aes(ANO, ESPVIDA, group=ANO)) +
                  labs(x="Ano", y="Expectativa de vida (anos)") + geom_col(),
@@ -179,7 +176,7 @@ grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expec
 ```
 
 ## Renda per capita
-```{r fig.height=7, fig.width=7, cache=TRUE}
+```{r rendapercapita, fig.height=7, fig.width=7, cache=TRUE}
 grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Renda per capita",
              ggplot(federal, aes(ANO, RDPC, group=ANO)) +
                  labs(x="Ano", y="Renda per capita (R$)") + geom_col(),
@@ -194,7 +191,7 @@ grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Renda
 ```
 
 ## Expectativa de anos de estudo
-```{r fig.height=7, fig.width=7, cache=TRUE}
+```{r expectativadeestudo, fig.height=7, fig.width=7, cache=TRUE}
 grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expectativa de anos de estudo",
              ggplot(federal, aes(ANO, E_ANOSESTUDO, group=ANO)) +
                  labs(x="Ano", y="Expectativa de estudo (anos)") + geom_col(),
@@ -209,7 +206,7 @@ grid.arrange(layout_matrix=rbind(c(1,2,2,2), c(3)), heights=c(1,2), top = "Expec
 ```
 
 ## Dispersão da fecundidade e longevidade por unidade da federação
-```{r fig.height=5, fig.width=15, cache=TRUE}
+```{r fecundidadeXlongevidade, fig.height=5, fig.width=15, cache=TRUE}
 ggplot(estadual, aes(FECTOT, ESPVIDA)) +
     labs(title="Fecundidade X Longevidade por unidade da federação",
          x="Taxa de Fecundidade (média de filhos por mulher)",
@@ -220,7 +217,7 @@ ggplot(estadual, aes(FECTOT, ESPVIDA)) +
 ```
 
 ## Dispersão dos sub-índices do IDHM: Educação, Renda e Longevidade
-```{r fig.height=5, fig.width=15, cache=TRUE}
+```{r IDHMExIDHMR, fig.height=5, fig.width=15, cache=TRUE}
 ggplot(estadual, aes(IDHM_E, IDHM_R)) +
     labs(title="IDHM: Educação X Renda", size="População", color="Região") +
     geom_point(aes(size=PESOTOT, color=REGIAO)) +
@@ -228,7 +225,7 @@ ggplot(estadual, aes(IDHM_E, IDHM_R)) +
     facet_grid(facets=.~ANO) + geom_smooth(method="loess", color="black", size=.5, se = FALSE)
 ```
 
-```{r fig.height=5, fig.width=15}
+```{r IDHMExIDHML, fig.height=5, fig.width=15}
 ggplot(estadual, aes(IDHM_E, IDHM_L)) +
     labs(title="IDHM: Educação X Longevidade", size="População", color="Região") +
     geom_point(aes(size=PESOTOT, color=REGIAO)) +
@@ -236,7 +233,7 @@ ggplot(estadual, aes(IDHM_E, IDHM_L)) +
     facet_grid(facets=.~ANO) + geom_smooth(method="loess", color="black", size=.5, se = FALSE)
 ```
 
-```{r fig.height=5, fig.width=15}
+```{r IDHMRxIDHML, fig.height=5, fig.width=15}
 ggplot(estadual, aes(IDHM_R, IDHM_L)) +
     labs(title="IDHM: Renda X Longevidade", size="População", color="Região") +
     geom_point(aes(size=PESOTOT, color=REGIAO)) +
@@ -266,7 +263,7 @@ ggp <- function(data, ...) {
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="demografia e saúde", c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=10, cache=TRUE}
+```{r pares.demografiaesaude, fig.height=10, fig.width=10, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Demografia e saúde")
 ```
@@ -280,7 +277,7 @@ Variáveis selecionadas: ESPVIDA, FECTOT, RAZDEP, T_ENV
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de analfabetismo"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=10, cache=TRUE}
+```{r pares.educacao.analfabetismo, fig.height=10, fig.width=10, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Educação: Expectativa de anos de estudo e grau de analfabetismo")
 ```
@@ -292,7 +289,7 @@ Variáveis selecionadas: E_ANOSESTUDO, T_ANALF11A14, T_ANALF15A17, T_ANALF15M, T
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de escolaridade"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=15, cache=TRUE}
+```{r pares.educacao.escolaridade, fig.height=10, fig.width=15, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Educação: Expectativa de anos de estudo e grau de escolaridade")
 ```
@@ -304,7 +301,7 @@ Variáveis selecionadas: T_FUND15A17, T_FUND16A18, T_FUND18A24, T_FUND18M    T_F
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "atraso idade-série"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=15, cache=TRUE}
+```{r pares.educacao.atraso, fig.height=10, fig.width=15, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Educação: Expectativa de anos de estudo e atraso idade-série")
 ```
@@ -316,7 +313,7 @@ Variáveis selecionadas: T_ATRASO_0_MED, T_ATRASO_1_BASICO, T_ATRASO_1_FUND, T_A
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "atendimento ou frequência simples"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=15, cache=TRUE}
+```{r pares.educacao.frequenciasimples, fig.height=10, fig.width=15, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Estudo: Expectativa de anos de estudo e atendimento ou frequência simples")
 ```
@@ -328,7 +325,7 @@ Variáveis selecionadas: T_FREQ0A3, T_FREQ11A14, T_FREQ15A17, T_FREQ18A24, T_FRE
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "frequência qualificada"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=20, cache=TRUE}
+```{r pares.educacao.frequenciaqualificada, fig.height=10, fig.width=20, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Estudo: Expectativa de anos de estudo e frequência qualificada")
 ```
@@ -340,7 +337,7 @@ Variáveis selecionadas: T_FBBAS, T_FBFUND, T_FBMED, T_FBPR, T_FBSUPER, T_FLBAS,
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="habitação", c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=10, cache=TRUE}
+```{r pares.habitacao, fig.height=10, fig.width=10, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Habitação")
 ```
@@ -358,7 +355,7 @@ vars <- dicionario %>%
 knitr::kable(vars, row.names = FALSE)
 ```
 
-```{r fig.height=20, fig.width=20, cache=TRUE}
+```{r pares.renda.niveledesigualdade, fig.height=20, fig.width=20, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Renda: Nível de renda e desigualdade")
 ```
@@ -370,7 +367,7 @@ Variáveis selecionadas: CORTE1, CORTE2, CORTE3, CORTE4, CORTE9, GINI, PREN10RIC
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="renda" & dicionario$SUBCATEGORIA %in% c("pobreza", "desigualdade de renda"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=10, cache=TRUE}
+```{r pares.renda.pobrezaedesigualdade, fig.height=10, fig.width=10, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Renda: Pobreza e desigualdade")
 ```
@@ -382,7 +379,7 @@ Variáveis selelcionadas: PIND, PINDCRI, PMPOB, PMPOBCRI, PPOB, PPOBCRI, R1040, 
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="renda" & dicionario$SUBCATEGORIA %in% c("caracterização dos ocupados"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=15, fig.width=20, cache=TRUE}
+```{r pares.renda.ocupados, fig.height=15, fig.width=20, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Renda: Caracterização dos ocupados")
 ```
@@ -396,7 +393,7 @@ Variáveis selecionadas: CPR, EMP, P_AGRO, P_COM, P_CONSTR, P_EXTR, P_FORMAL, P_
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="população" & dicionario$SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("HOME", dicionario$SIGLA), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=15, fig.width=20, cache=TRUE}
+```{r pares.populacao.masculina, fig.height=15, fig.width=20, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "População: Gênero masculino e faixa etária")
 ```
@@ -406,7 +403,7 @@ select(municipal2010, vars$SIGLA) %>%
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="população" & dicionario$SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("MULH", dicionario$SIGLA), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=15, fig.width=20, cache=TRUE}
+```{r pares.populacao.feminina, fig.height=15, fig.width=20, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "População: Gênero feminino e faixa etária")
 ```
@@ -416,7 +413,7 @@ select(municipal2010, vars$SIGLA) %>%
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="população" & dicionario$SUBCATEGORIA %in% c("economicamente ativa (PEA)", "residente e faixa etária", "residente, faixa etária e gênero", "residente rural", "residente total", "residente urbana", "residente permanente", "residente permanente exceto renda nula"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=20, fig.width=20, cache=TRUE}
+```{r pares.populacoes, fig.height=20, fig.width=20, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "População: PEA, residente, permanente, rural, urbana e renda nula")
 ```
@@ -428,7 +425,7 @@ Variáveis selecionadas: PESORUR, PESOURB
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="trabalho" & dicionario$SUBCATEGORIA %in% c("atividade e desocupação"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=10, cache=TRUE}
+```{r pares.trabalho, fig.height=10, fig.width=10, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Trabalho")
 ```
@@ -440,7 +437,7 @@ Variáveis selecionadas: T_ATIV, T_ATIV1014, T_ATIV1517, T_DES, T_DES1014, T_DES
 knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="vulnerabilidade", c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=10, fig.width=15, cache=TRUE}
+```{r pares.vulnerabilidade, fig.height=10, fig.width=15, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "Vulnerabilidade")
 ```
@@ -456,7 +453,7 @@ knitr::kable(vars <- dicionario[dicionario$SIGLA %in% c("IDHM", "IDHM_E", "IDHM_
                                                         "RDPC"), c(2,3,5)], row.names = FALSE)
 ```
 
-```{r fig.height=15, fig.width=15, cache=TRUE}
+```{r pares.IDHM, fig.height=15, fig.width=15, cache=TRUE}
 select(municipal2010, vars$SIGLA) %>%
     ggp(title = "IDHM")
 ```
