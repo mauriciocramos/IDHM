@@ -42,7 +42,7 @@ R.version.string
 
 Pacotes R:
 ```{r}
-packages <- c("ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel")
+packages <- c("ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest")
 loaded <- suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
@@ -59,19 +59,49 @@ noquote(packageVersions)
 # Carga dos dados brutos do atlas municipal
 
 ```{r}
-municipal <- read.csv2("municipal.csv", encoding = "UTF-8",
+dicionario <- read.csv2("dicionario.csv", encoding = "UTF-8")
+names(dicionario) <- toupper(iconv(names(dicionario), to="ASCII//TRANSLIT"))
+data <- read.csv2("municipal.csv", encoding = "UTF-8",
                        colClasses=c(rep("factor",2),rep("character",3),rep("numeric", 232)))
-names(municipal) <- toupper(iconv(names(municipal), to="ASCII//TRANSLIT"))
+names(data) <- toupper(iconv(names(data), to="ASCII//TRANSLIT"))
+```
+
+# Seleção dos registros de 2010
+```{r}
+data <- filter(data, ANO=="2010")
 ```
 
 # Seleção das variáveis
 
 Remoção das variáveis consideradas irrelevantes, redundantes ou mesmo prejudiciais ao modelo de predição proposto, como base na [análise exploratória](https://mauriciocramos.github.io/IDHM/IDHM-EDA.html).
 
-Seleção dos registros de 2010
+## Remoção das variáveis irrelevantes
 ```{r}
-data <- municipal[municipal$ANO=="2010", -(1:5)]
+data <- select(data, -c("ANO", "UF", "CODMUN6", "CODMUN7", "MUNICIPIO"))
 ```
+
+## Variáveis altamente correlacionadas
+```{r}
+correlationMatrix <- cor(data)
+highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.8, names=TRUE)
+paste(highlyCorrelated, collapse = ", ")
+# dicionario %>% filter(SIGLA %in% highlyCorrelated) %>% select(CATEGORIA, SIGLA, NOME.CURTO)
+```
+
+## Importância da variáveis estimada por modelo
+```{r}
+set.seed(1)
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+control <- trainControl(method="none")
+model <- train(ESPVIDA ~ ., data=data, method="svmRadial", preProcess="scale", trControl=control)
+importance <- varImp(model, scale=FALSE)
+print(importance)
+plot(importance)
+```
+
+
+
+
 
 Remoção das variáveis redundantes dentro de cada categoria
 ```{r}
