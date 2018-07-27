@@ -83,7 +83,7 @@ data <- select(data, -c("ANO", "UF", "CODMUN6", "CODMUN7", "MUNICIPIO"))
 correlationMatrix <- cor(data)
 highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.8, names=TRUE)
 paste(highlyCorrelated, collapse = ", ")
-# dicionario %>% filter(SIGLA %in% highlyCorrelated) %>% select(CATEGORIA, SIGLA, NOME.CURTO)
+#dicionario %>% filter(SIGLA %in% highlyCorrelated) %>% select(CATEGORIA, SIGLA, NOME.CURTO)
 ```
 
 ## Importância da variáveis estimada por modelo
