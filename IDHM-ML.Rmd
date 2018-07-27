@@ -73,8 +73,6 @@ data <- filter(data, ANO=="2010")
 
 # Seleção das variáveis
 
-Remoção das variáveis consideradas irrelevantes, redundantes ou mesmo prejudiciais ao modelo de predição proposto, como base na [análise exploratória](https://mauriciocramos.github.io/IDHM/IDHM-EDA.html).
-
 ## Remoção das variáveis irrelevantes
 ```{r}
 data <- select(data, -c("ANO", "UF", "CODMUN6", "CODMUN7", "MUNICIPIO"))
@@ -99,9 +97,7 @@ print(importance)
 plot(importance)
 ```
 
-
-
-
+## Remoção das variáveis redundantes com base na [análise exploratória](https://mauriciocramos.github.io/IDHM/IDHM-EDA.html).
 
 Remoção das variáveis redundantes dentro de cada categoria
 ```{r}
