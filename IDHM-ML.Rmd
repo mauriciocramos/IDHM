@@ -87,15 +87,18 @@ paste(highlyCorrelated, collapse = ", ")
 #dicionario %>% filter(SIGLA %in% highlyCorrelated) %>% select(CATEGORIA, SIGLA, NOME.CURTO)
 ```
 
-## Importância da variáveis estimada por modelo
+## Importância da variáveis estimada por modelo Random Forest
 ```{r}
 set.seed(1)
-#control <- trainControl(method="repeatedcv", number=10, repeats=3, verboseIter=TRUE)
+# control <- trainControl(method="repeatedcv", number=10, repeats=3, verboseIter=TRUE)
 control <- trainControl(method="none", verboseIter=TRUE)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., data=data, method="svmRadial", preProcess="scale", trControl=control)
+fit <- train(ESPVIDA ~ ., data=data, method="rf", preProcess="scale", trControl=control)
 proc.time() - ptm
 fit
+```
+
+```{r}
 ptm <- proc.time()
 importance <- varImp(model, scale=FALSE)
 proc.time() - ptm
@@ -103,8 +106,29 @@ importance
 ```
 
 ```{r}
-plot(importance)
+plot(importance, top=20)
+```
 
+## Recursive Feature Elimination (RFE)
+```{r}
+library(doMC)
+registerDoMC(cores = parallel::detectCores())
+set.seed(1)
+# control <- rfeControl(functions=rfFuncs, method="cv", number=10)
+control <- rfeControl(functions=rfFuncs, method="cv", number=2)
+ptm <- proc.time()
+# results <- rfe(data[,-1], data[,1], sizes=c(1:8), rfeControl=control)
+results <- rfe(data[,-1], data[,1], sizes=2^(2:4), rfeControl=control)
+proc.time() - ptm
+results
+```
+
+```{r}
+predictors(results)
+```
+
+```{r}
+plot(results, type=c("g", "o"))
 ```
 
 ## Remoção das variáveis redundantes com base na [análise exploratória](https://mauriciocramos.github.io/IDHM/IDHM-EDA.html).
