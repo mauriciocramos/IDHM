@@ -90,12 +90,21 @@ paste(highlyCorrelated, collapse = ", ")
 ## Importância da variáveis estimada por modelo
 ```{r}
 set.seed(1)
-control <- trainControl(method="repeatedcv", number=10, repeats=3)
-control <- trainControl(method="none")
-model <- train(ESPVIDA ~ ., data=data, method="svmRadial", preProcess="scale", trControl=control)
+#control <- trainControl(method="repeatedcv", number=10, repeats=3, verboseIter=TRUE)
+control <- trainControl(method="none", verboseIter=TRUE)
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., data=data, method="svmRadial", preProcess="scale", trControl=control)
+proc.time() - ptm
+fit
+ptm <- proc.time()
 importance <- varImp(model, scale=FALSE)
-print(importance)
+proc.time() - ptm
+importance
+```
+
+```{r}
 plot(importance)
+
 ```
 
 ## Remoção das variáveis redundantes com base na [análise exploratória](https://mauriciocramos.github.io/IDHM/IDHM-EDA.html).
