@@ -114,12 +114,7 @@ plot(importance, top=20)
 library(doMC)
 registerDoMC(cores = parallel::detectCores())
 set.seed(1)
-<<<<<<< HEAD
 control <- rfeControl(functions=rfFuncs, method="cv", number=10)
-=======
-# control <- rfeControl(functions=rfFuncs, method="cv", number=10)
-control <- rfeControl(functions=rfFuncs, method="cv", number=2)
->>>>>>> 030bf54727436dbcb967c0771f8cd977d86ce4bd
 ptm <- proc.time()
 # results <- rfe(data[,-1], data[,1], sizes=c(1:8), rfeControl=control)
 results <- rfe(data[,-1], data[,1], sizes=2^(2:4), rfeControl=control)
