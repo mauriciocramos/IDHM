@@ -42,7 +42,7 @@ R.version.string
 
 Pacotes R:
 ```{r}
-packages <- c("ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest")
+packages <- c("plyr", "ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest")
 loaded <- suppressMessages(suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE)))
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
@@ -72,9 +72,15 @@ names(data) <- toupper(iconv(names(data), to="ASCII//TRANSLIT"))
 data <- filter(data, ANO=="2010")
 ```
 
+# Habilitando processamento paralelo
+```{r}
+cluster <- makeCluster(detectCores())
+registerDoParallel(cluster)
+```
+
 # Seleção das variáveis
 
-## Remoção das variáveis irrelevantes
+## Remoção das variáveis assumidas como irrelevantes
 ```{r}
 data <- select(data, -c("ANO", "UF", "CODMUN6", "CODMUN7", "MUNICIPIO"))
 ```
@@ -87,24 +93,23 @@ paste(highlyCorrelated, collapse = ", ")
 #dicionario %>% filter(SIGLA %in% highlyCorrelated) %>% select(CATEGORIA, SIGLA, NOME.CURTO)
 ```
 
-## Importância da variáveis estimada por modelo Random Forest
+## Importância das variáveis estimada por modelo Random Forest
 ```{r}
 set.seed(1)
-# control <- trainControl(method="repeatedcv", number=10, repeats=3, verboseIter=TRUE)
-control <- trainControl(method="none", verboseIter=TRUE)
+# control <- trainControl(method="cv", number=10, verboseIter=TRUE)
+control <- trainControl(method="cv", number=2, verboseIter=TRUE)
+# control <- trainControl(method="none", verboseIter=TRUE)
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., data=data, method="rf", preProcess="scale", trControl=control)
+fit <- train(ESPVIDA ~ ., data=data, method="rf", preProcess="scale", trControl=control, importance=TRUE)
 proc.time() - ptm
 fit
-```
-
+``` 
 ```{r}
 ptm <- proc.time()
-importance <- varImp(model, scale=FALSE)
+importance <- varImp(fit, scale=FALSE)
 proc.time() - ptm
 importance
 ```
-
 ```{r}
 plot(importance, top=20)
 ```
@@ -163,10 +168,6 @@ testing  <- data[-inTraining,]
 ```
 
 # Seleção de algoritmos e hiperparâmetros
-```{r}
-cluster <- makeCluster(detectCores())
-registerDoParallel(cluster)
-```
 
 ## 1 - Random Forest sem reamostragem
 ```{r, cache=TRUE}
@@ -258,6 +259,7 @@ fit
 postResample(predict(fit, testing), testing$ESPVIDA)
 ```
 
+# Desabilitando processamento paralelo
 ```{r}
 stopCluster(cluster)
 registerDoSEQ()
