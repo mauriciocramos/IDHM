@@ -43,7 +43,7 @@ R.version.string
 Pacotes R:
 ```{r}
 packages <- c("ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest")
-loaded <- suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
+loaded <- suppressMessages(suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE)))
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
     message("Installing package(s) ", paste(missingPackages, collapse=", "))
