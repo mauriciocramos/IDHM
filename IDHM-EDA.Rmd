@@ -103,12 +103,12 @@ municipal %>%
     knitr::kable()
 ```
 
-Total de municípios por unidade da federação por ano
+Total de municípios por unidade da federação e por ano
 ```{r}
 municipal %>% group_by(ANO, UFN) %>% summarise(TOTAL=n()) %>% spread(key = ANO, value = TOTAL) %>% as.data.frame()
 ```
 
-Total de municípios por região por ano
+Total de municípios por região e por ano
 ```{r}
 municipal %>% group_by(ANO, REGIAON) %>% summarise(TOTAL=n()) %>% spread(key = ANO, value = TOTAL) %>% as.data.frame()
 ```
