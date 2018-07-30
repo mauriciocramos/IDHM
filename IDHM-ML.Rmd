@@ -80,40 +80,55 @@ registerDoParallel(cluster)
 
 # Seleção das variáveis
 
-## Remoção das variáveis assumidas como irrelevantes
+Remoção das variáveis assumidas como irrelevantes
 ```{r}
 data <- select(data, -c("ANO", "UF", "CODMUN6", "CODMUN7", "MUNICIPIO"))
 ```
+Remoção das variáveis dependentes da variável alvo `ESPVIDA` (expectativa de vida ao nascer), i.e., que vazam dados:
 
-## Variáveis altamente correlacionadas
-
-Proposta de preditores que não estejam altamente correlacionados dentro dos seus grupos.
-94 preditores:
-FECTOT, MORT1, RAZDEP, SOBRE40, T_ENV, E_ANOSESTUDO, T_ANALF15A17, T_ANALF25M, T_FUND12A14, T_FUND15A17, T_MED25M, T_ATRASO_1_BASICO, T_ATRASO_1_MED, T_ATRASO_2_MED, T_FREQ0A3, T_FREQ11A14, T_FREQ15A17, T_FREQ18A24, T_FREQ25A29, T_FREQ4A5, T_FREQ6, T_FBBAS, T_FBMED, T_FBSUPER, T_FLBAS, T_FLFUND, T_FLMED, T_FLPRE, T_FREQFUND1517, T_FREQFUND1824, T_FREQFUND45, T_FREQMED1824, T_FREQMED614, T_FREQSUPER1517, T_AGUA, T_DENS, T_LIXO, AGUA_ESGOTO, PAREDE, T_SLUZ, PREN10RICOS, PRENTRAB, R1040, RDPC, RIND, RMPOB, THEILTRAB, GINI, PPOB, CPR, EMP, P_AGRO, P_COM, P_CONSTR, P_EXTR, P_FORMAL, P_SERV, P_SIUP, P_SUPER, P_TRANSF, REN0, REN5, TRABPUB, TRABSC, HOMEM5A9, MULH5A9, PEA1014, PESORUR, T_ATIV1014, T_ATIV1517, T_ATIV2529, T_DES1014, T_DES1517, T_DES1824, T_DES2529, T_FORA4A5, T_FORA6A14, T_FUNDIN18MINF, T_M10A14CF, T_M15A17CF, T_MULCHEFEFIF014, T_OCUPDESLOC_1, T_RMAXIDOSO, T_FREQ5A6, T_FUND11A13, T_FUND18M
-
-Proposta de preditores que não estejam altamente correlacionados entre seus grupos.
-72 preditores:
-FECTOT, MORT1, RAZDEP, SOBRE40, T_ENV, E_ANOSESTUDO, T_ANALF15A17, T_FUND12A14, T_ATRASO_1_BASICO, T_ATRASO_1_MED, T_ATRASO_2_MED, T_FREQ0A3, T_FREQ11A14, T_FREQ15A17, T_FREQ18A24, T_FREQ25A29, T_FREQ6, T_FBBAS, T_FBMED, T_FBSUPER, T_FLBAS, T_FLFUND, T_FLMED, T_FLPRE, T_FREQFUND1517, T_FREQFUND1824, T_FREQFUND45, T_FREQMED1824, T_FREQMED614, T_FREQSUPER1517, T_AGUA, T_DENS, T_LIXO, AGUA_ESGOTO, PAREDE, T_SLUZ, PREN10RICOS, PRENTRAB, R1040, RIND, RMPOB, THEILTRAB, CPR, EMP, P_AGRO, P_COM, P_CONSTR, P_EXTR, P_FORMAL, P_SERV, P_SIUP, P_SUPER, P_TRANSF, REN0, REN5, TRABPUB, TRABSC, HOMEM5A9, PESORUR, T_ATIV1014, T_ATIV1517, T_ATIV2529, T_DES1014, T_DES1517, T_DES1824, T_DES2529, T_M10A14CF, T_M15A17CF, T_MULCHEFEFIF014, T_OCUPDESLOC_1, T_RMAXIDOSO, T_FREQ5A6
-
-Proposta de preditores que não estejam altamente correlacionados em geral.
-68 preditores:
-FECTOT, MORT5, SOBRE40, T_ENV, E_ANOSESTUDO, T_ANALF15A17, T_ATRASO_1_BASICO, T_ATRASO_1_MED, T_ATRASO_2_MED, T_FBBAS, T_FBMED, T_FBPRE, T_FLBAS, T_FLFUND, T_FLMED, T_FLSUPER, T_FREQ0A3, T_FREQ15A17, T_FREQ18A24, T_FREQ25A29, T_FREQ6, T_FREQFUND1517, T_FREQFUND1824, T_FREQFUND45, T_FREQMED1824, T_FREQMED614, T_FREQSUPER1517, T_FUND12A14, PREN10RICOS, PRENTRAB, R1040, RIND, RMPOB, CPR, EMP, P_AGRO, P_COM, P_CONSTR, P_EXTR, P_SERV, P_SIUP, P_SUPER, P_TRANSF, REN0, T_ATIV1014, T_ATIV1517, T_ATIV18M, T_DES1014, T_DES1517, T_DES1824, THEILTRAB, TRABCC, TRABPUB, TRABSC, T_AGUA, T_DENS, T_LIXO, AGUA_ESGOTO, PAREDE, T_FORA4A5, T_M10A14CF, T_M15A17CF, T_MULCHEFEFIF014, T_OCUPDESLOC_1, T_RMAXIDOSO, T_SLUZ, PEA1014, PESORUR
-
+$$IDHM\_L = (ESPVIDA - 25) / (85 - 25)$$
+$$IDHM = (IDHM\_E * IDHM\_L * IDHM\_R) ^{(1/3)}$$
 ```{r}
-correlationMatrix <- cor(data)
+data <- select(data, -c("IDHM", "IDHM_L"))
+```
+Variáveis altamente correlacionadas, i.e., limite absoluto [0.8]
+```{r}
+correlationMatrix <- cor(data[-1])
 highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.8, names=TRUE)
-paste(highlyCorrelated, collapse = ", ")
+cat(length(highlyCorrelated), "variáveis: \n")
+cat(paste(highlyCorrelated, collapse=", "))
 #dicionario %>% filter(SIGLA %in% highlyCorrelated) %>% select(CATEGORIA, SIGLA, NOME.CURTO)
 ```
 
-## Importância das variáveis estimada por modelo Random Forest
+## Importância variáveis estimada pelo Random Forest
+
+### Usando variáveis altamente correlacionadas:
 ```{r}
 set.seed(1)
 # control <- trainControl(method="cv", number=10, verboseIter=TRUE)
 control <- trainControl(method="cv", number=2, verboseIter=TRUE)
-# control <- trainControl(method="none", verboseIter=TRUE)
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., data=data, method="rf", preProcess="scale", trControl=control, importance=TRUE)
+proc.time() - ptm
+fit
+``` 
+```{r}
+ptm <- proc.time()
+importance <- varImp(fit, scale=FALSE)
+proc.time() - ptm
+importance
+```
+```{r}
+plot(importance, top=20)
+```
+
+### Removendo variáveis altamente correlacionadas:
+```{r}
+set.seed(1)
+# control <- trainControl(method="cv", number=10, verboseIter=TRUE)
+control <- trainControl(method="cv", number=2, verboseIter=TRUE)
+ptm <- proc.time()
+fit <- train(ESPVIDA ~ ., data=data[-highlyCorrelated], method="rf", preProcess="scale", trControl=control, importance=TRUE)
 proc.time() - ptm
 fit
 ``` 
@@ -146,13 +161,6 @@ predictors(results)
 
 ```{r}
 plot(results, type=c("g", "o"))
-```
-
-## Remoção das variáveis redundantes com base na [análise exploratória](https://mauriciocramos.github.io/IDHM/IDHM-EDA.html).
-
-Remoção das variáveis redundantes dentro de cada categoria
-```{r}
-#TODO
 ```
 
 # Pré-processamento das variáveis

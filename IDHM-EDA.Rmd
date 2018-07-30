@@ -248,7 +248,7 @@ target <- "ESPVIDA"
 cutoff <- 0.8
 ```
 
-A partir dos dados de 2010 são elaborados gráficos de pares combinando a variável alvo `r target` (esperança de vida ao nascer) com as demais variáveis numéricas e potenciais preditoras.  Como seria inviável exibir e analisar visualmente uma matriz de gráficos de 240 X 240, a variável de interesse é correlacionada em grupos definidos conforme o [glossário do Atlas](http://www.atlasbrasil.org.br/2013/pt/o_atlas/glossario/).
+A partir dos dados de 2010 são elaboradas matrizes de gráficos de pares das variáveis por categorias conforme definidas no [glossário do Atlas](http://www.atlasbrasil.org.br/2013/pt/o_atlas/glossario/).
 
 ```{r}
 municipal2010 <- filter(municipal, ANO=="2010") %>% select(-ANO)
@@ -264,7 +264,7 @@ ggp <- function(data, ...) {
 }
 ```
 
-Abaixo da matriz de gráficos serão listadas as possíveis variáveis preditoras que não possuem alta correlação (limite absoluto [`r cutoff`]) e nos casos contrários serão eliminadas as variáveis que possuírem maior correlação média absoluta.
+Abaixo da matrizes de gráficos de pares serão listadas as variáveis não possuem alta correlação (limite absoluto [`r cutoff`]) e nos casos contrários serão eliminadas as variáveis que possuírem maior correlação média absoluta.
 
 ```{r}
 lowCorVars <- function(df, vars, cutoff) {
@@ -272,12 +272,11 @@ lowCorVars <- function(df, vars, cutoff) {
   highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=cutoff, names=TRUE)
   vars[! vars %in% highlyCorrelated]
 }
-innerGroupVars <- character()
 ```
 
 ### Demografia e saúde
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | CATEGORIA=="demografia e saúde"])
+vars <- with(dicionario, SIGLA[CATEGORIA=="demografia e saúde"])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.demografiaesaude, fig.height=10, fig.width=10, cache=TRUE}
@@ -286,7 +285,7 @@ ggp(select(municipal2010, vars), title = "Demografia e saúde")
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 ### Educação
@@ -294,7 +293,7 @@ cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 #### Expectativa de anos de estudo e grau de analfabetismo
 
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de analfabetismo"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de analfabetismo")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.educacao.analfabetismo, fig.height=10, fig.width=10, cache=TRUE}
@@ -303,12 +302,12 @@ ggp(select(municipal2010, vars), title = "Educação: Expectativa de anos de est
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 #### Expectativa de anos de estudo e grau de escolaridade
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de escolaridade"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de escolaridade")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.educacao.escolaridade, fig.height=10, fig.width=15, cache=TRUE}
@@ -317,12 +316,12 @@ ggp(select(municipal2010, vars), title = "Educação: Expectativa de anos de est
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 #### Expectativa de anos de estudo e atraso idade-série
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "atraso idade-série"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "atraso idade-série")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.educacao.atraso, fig.height=10, fig.width=15, cache=TRUE}
@@ -331,12 +330,12 @@ ggp(select(municipal2010, vars), title = "Educação: Expectativa de anos de est
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 #### Expectativa de anos de estudo e atendimento ou frequência simples
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "atendimento ou frequência simples"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "atendimento ou frequência simples")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.educacao.frequenciasimples, fig.height=10, fig.width=15, cache=TRUE}
@@ -345,12 +344,12 @@ ggp(select(municipal2010, vars), title = "Estudo: Expectativa de anos de estudo 
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 #### Expectativa de anos de estudo e frequência qualificada
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "frequência qualificada"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "frequência qualificada")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.educacao.frequenciaqualificada, fig.height=10, fig.width=20, cache=TRUE}
@@ -359,12 +358,12 @@ ggp(select(municipal2010, vars), title = "Estudo: Expectativa de anos de estudo 
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 ### Habitação
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | CATEGORIA=="habitação"])
+vars <- with(dicionario, SIGLA[CATEGORIA=="habitação"])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.habitacao, fig.height=10, fig.width=10, cache=TRUE}
@@ -373,14 +372,14 @@ ggp(select(municipal2010, vars), title = "Habitação")
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 ### Renda
 
 #### Nível de renda e desigualdade
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="renda" & SUBCATEGORIA %in% c("nível de renda", "desigualdade de renda"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="renda" & SUBCATEGORIA %in% c("nível de renda", "desigualdade de renda")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.renda.niveledesigualdade, fig.height=20, fig.width=20, cache=TRUE}
@@ -389,12 +388,12 @@ ggp(select(municipal2010, vars), title = "Renda: Nível de renda e desigualdade"
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 #### Pobreza e desigualdade
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="renda" & SUBCATEGORIA %in% c("pobreza", "desigualdade de renda"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="renda" & SUBCATEGORIA %in% c("pobreza", "desigualdade de renda")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.renda.pobrezaedesigualdade, fig.height=10, fig.width=10, cache=TRUE}
@@ -403,12 +402,12 @@ ggp(select(municipal2010, vars), title = "Renda: Pobreza e desigualdade")
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 #### Caracterização dos ocupados
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="renda" & SUBCATEGORIA %in% c("caracterização dos ocupados"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="renda" & SUBCATEGORIA %in% c("caracterização dos ocupados")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.renda.ocupados, fig.height=15, fig.width=20, cache=TRUE}
@@ -417,14 +416,14 @@ ggp(select(municipal2010, vars), title = "Renda: Caracterização dos ocupados")
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 ### População
 
 #### Gênero masculino e faixa etária
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="população" & SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("HOME", SIGLA))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="população" & SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("HOME", SIGLA)])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.populacao.masculina, fig.height=15, fig.width=20, cache=TRUE}
@@ -433,12 +432,12 @@ ggp(select(municipal2010, vars), title = "População: Gênero masculino e faixa
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 #### Gênero feminino e faixa etária
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="população" & SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("MULH", SIGLA))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="população" & SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("MULH", SIGLA)])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.populacao.feminina, fig.height=15, fig.width=20, cache=TRUE}
@@ -447,12 +446,12 @@ ggp(select(municipal2010, vars), title = "População: Gênero feminino e faixa 
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 #### Gênero, PEA, residente, permanente, rural, urbana e renda nula
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="população" & SUBCATEGORIA %in% c("economicamente ativa (PEA)", "residente e faixa etária", "residente, faixa etária e gênero", "residente rural", "residente total", "residente urbana", "residente permanente", "residente permanente exceto renda nula"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="população" & SUBCATEGORIA %in% c("economicamente ativa (PEA)", "residente e faixa etária", "residente, faixa etária e gênero", "residente rural", "residente total", "residente urbana", "residente permanente", "residente permanente exceto renda nula")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.populacoes, fig.height=20, fig.width=20, cache=TRUE}
@@ -461,12 +460,12 @@ ggp(select(municipal2010, vars), title = "População: PEA, residente, permanent
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 ### Trabalho
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="trabalho" & SUBCATEGORIA %in% c("atividade e desocupação"))])
+vars <- with(dicionario, SIGLA[CATEGORIA=="trabalho" & SUBCATEGORIA %in% c("atividade e desocupação")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.trabalho, fig.height=10, fig.width=10, cache=TRUE}
@@ -475,12 +474,12 @@ ggp(select(municipal2010, vars), title = "Trabalho")
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 ### Vulnerabilidade
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | CATEGORIA=="vulnerabilidade"])
+vars <- with(dicionario, SIGLA[CATEGORIA=="vulnerabilidade"])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.vulnerabilidade, fig.height=10, fig.width=15, cache=TRUE}
@@ -489,16 +488,17 @@ ggp(select(municipal2010, vars), title = "Vulnerabilidade")
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
 
 ### IDHM
            
 ```{r}
-vars <- with(dicionario, SIGLA[SIGLA==target | SIGLA %in% c("IDHM_L", "ESPVIDA",
-                                                            "IDHM_E", "I_ESCOLARIDADE", "T_FUND18M", "I_FREQ_PROP", "T_FREQ5A6", "T_FUND11A13", "T_FUND15A17", "T_MED18A20", 
-                                                            "IDHM_R", "RDPC",
-                                                            "IDHM")])
+vars <- with(dicionario, SIGLA[SIGLA %in% c("IDHM_L", "ESPVIDA",
+                                            "IDHM_E", "I_ESCOLARIDADE", "T_FUND18M",
+                                            "I_FREQ_PROP", "T_FREQ5A6", "T_FUND11A13", "T_FUND15A17", "T_MED18A20",
+                                            "IDHM_R", "RDPC",
+                                            "IDHM")])
 knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
 ```{r pares.IDHM, fig.height=15, fig.width=15, cache=TRUE}
@@ -507,9 +507,8 @@ ggp(select(municipal2010, vars), title = "IDHM")
 
 Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
+cat(paste(lowCorVars(municipal2010, vars, cutoff), collapse=", "))
 ```
-Estas variáveis serão avaliadas na modelagem preditiva, exceto o `IDHM_L` pois este é calculado diretamente da variável alvo `(ESPVIDA - 25) / (85 - 25)` e seria um vazamento de informação no modelo preditivo.
 
 # Conclusões
 
