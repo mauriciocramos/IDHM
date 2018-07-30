@@ -264,13 +264,13 @@ ggp <- function(data, ...) {
 }
 ```
 
-Em cada grupo, se duas variáveis possuírem correlação alta, no caso, maior que [`r cutoff`], é sugerido ao modelo preditivo a variável que possuir menor correlação média absoluta dentro do grupo.  As demais variáveis com baixa correlação dentro do grupo também são sugeridas ao modelo preditivo.
+Abaixo da matriz de gráficos serão listadas as possíveis variáveis preditoras que não possuem alta correlação (limite absoluto [`r cutoff`]) e nos casos contrários serão eliminadas as variáveis que possuírem maior correlação média absoluta.
 
 ```{r}
-proposeVars <- function(df, target, vars, cutoff) {
-  correlationMatrix <- cor(select(df, vars, -target))
+lowCorVars <- function(df, vars, cutoff) {
+  correlationMatrix <- cor(df[, vars])
   highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=cutoff, names=TRUE)
-  vars[vars != target & ! vars %in% highlyCorrelated]
+  vars[! vars %in% highlyCorrelated]
 }
 innerGroupVars <- character()
 ```
@@ -284,13 +284,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Demografia e saúde")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 ### Educação
@@ -305,13 +301,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Educação: Expectativa de anos de estudo e grau de analfabetismo")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 #### Expectativa de anos de estudo e grau de escolaridade
@@ -323,13 +315,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Educação: Expectativa de anos de estudo e grau de escolaridade")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 #### Expectativa de anos de estudo e atraso idade-série
@@ -341,13 +329,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Educação: Expectativa de anos de estudo e atraso idade-série")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 #### Expectativa de anos de estudo e atendimento ou frequência simples
@@ -359,13 +343,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Estudo: Expectativa de anos de estudo e atendimento ou frequência simples")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 #### Expectativa de anos de estudo e frequência qualificada
@@ -377,13 +357,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Estudo: Expectativa de anos de estudo e frequência qualificada")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 ### Habitação
@@ -395,13 +371,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Habitação")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 ### Renda
@@ -415,13 +387,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Renda: Nível de renda e desigualdade")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 #### Pobreza e desigualdade
@@ -433,13 +401,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Renda: Pobreza e desigualdade")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 #### Caracterização dos ocupados
@@ -451,13 +415,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Renda: Caracterização dos ocupados")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 ### População
@@ -471,13 +431,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "População: Gênero masculino e faixa etária")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 #### Gênero feminino e faixa etária
@@ -489,13 +445,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "População: Gênero feminino e faixa etária")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 #### Gênero, PEA, residente, permanente, rural, urbana e renda nula
@@ -507,13 +459,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "População: PEA, residente, permanente, rural, urbana e renda nula")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 ### Trabalho
@@ -525,13 +473,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Trabalho")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 ### Vulnerabilidade
@@ -543,13 +487,9 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "Vulnerabilidade")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
-```
-Estas variáveis serão avaliadas na modelagem preditiva.
-```{r}
-innerGroupVars <- c(innerGroupVars, proposedVars)
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 
 ### IDHM
@@ -565,36 +505,18 @@ knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ggp(select(municipal2010, vars), title = "IDHM")
 ```
 
-Variáveis sugeridas:
+Variáveis abaixo do corte de correlação [`r cutoff`]:
 ```{r}
-(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+cat(paste(lowCorVars(municipal2010, vars[vars!=target], cutoff), collapse=", "))
 ```
 Estas variáveis serão avaliadas na modelagem preditiva, exceto o `IDHM_L` pois este é calculado diretamente da variável alvo `(ESPVIDA - 25) / (85 - 25)` e seria um vazamento de informação no modelo preditivo.
-```{r}
-proposedVars <- proposedVars[proposedVars!="IDHM_L"]
-innerGroupVars <- c(innerGroupVars, proposedVars)
-```
 
 # Conclusões
 
-Proposta de preditores que não estejam altamente correlacionados dentro dos seus grupos.
+Sugestão de preditores que não estejam altamente correlacionados em geral.
 ```{r}
-cat(length(innerGroupVars), "preditores:\n")
-cat(paste(innerGroupVars <- unique(innerGroupVars), collapse=", "))
-```
-
-Proposta de preditores que não estejam altamente correlacionados entre seus grupos.
-```{r}
-betweenGroupVars <- proposeVars(municipal2010, target, innerGroupVars, cutoff)
-cat(length(betweenGroupVars), "preditores:\n")
-cat(paste(betweenGroupVars, collapse=", "))
-```
-
-Proposta de preditores que não estejam altamente correlacionados em geral.
-```{r}
-allVars <- proposeVars(municipal2010, target, names(municipal2010[,-(1:8)]), cutoff)
-cat(length(allVars), "preditores:\n")
-cat(paste(allVars, collapse=", "))
+cat(length(lcv <- lowCorVars(municipal2010, names(municipal2010[,-(1:9)]), cutoff)), "preditores: \n")
+cat(paste(lcv, collapse=", "))
 ```
 
 ```{r, echo=FALSE}
