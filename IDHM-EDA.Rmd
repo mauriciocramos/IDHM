@@ -513,7 +513,7 @@ Estas variáveis serão avaliadas na modelagem preditiva, exceto o `IDHM_L` pois
 
 # Conclusões
 
-Sugestão de preditores que não estejam altamente correlacionados em geral.
+Sugestão de preditores que não estejam altamente correlacionados.
 ```{r}
 cat(length(lcv <- lowCorVars(municipal2010, names(municipal2010[,-(1:9)]), cutoff)), "preditores: \n")
 cat(paste(lcv, collapse=", "))
