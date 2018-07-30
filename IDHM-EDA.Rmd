@@ -42,7 +42,7 @@ R.version.string
 
 Pacotes R:
 ```{r}
-packages <- c("ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "parallel")
+packages <- c("ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "parallel", "caret")
 loaded <- suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
@@ -243,7 +243,13 @@ ggplot(estadual, aes(IDHM_R, IDHM_L)) +
 
 ## Gráficos de pares segmentados por categorias de variáveis
 
-São utilizados os dados de 2010.
+```{r, include=FALSE}
+target <- "ESPVIDA"
+cutoff <- 0.8
+```
+
+A partir dos dados de 2010 são elaborados gráficos de pares combinando a variável alvo `r target` (esperança de vida ao nascer) com as demais variáveis numéricas e potenciais preditoras.  Como seria inviável exibir e analisar visualmente uma matriz de gráficos de 240 X 240, a variável de interesse é correlacionada em grupos definidos conforme o [glossário do Atlas](http://www.atlasbrasil.org.br/2013/pt/o_atlas/glossario/).
+
 ```{r}
 municipal2010 <- filter(municipal, ANO=="2010") %>% select(-ANO)
 gglower <- function(data, mapping, point=list(), smooth=list(), ...) {
@@ -258,204 +264,337 @@ ggp <- function(data, ...) {
 }
 ```
 
+Em cada grupo, se duas variáveis possuírem correlação alta, no caso, maior que [`r cutoff`], é sugerido ao modelo preditivo a variável que possuir menor correlação média absoluta dentro do grupo.  As demais variáveis com baixa correlação dentro do grupo também são sugeridas ao modelo preditivo.
+
+```{r}
+proposeVars <- function(df, target, vars, cutoff) {
+  correlationMatrix <- cor(select(df, vars, -target))
+  highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=cutoff, names=TRUE)
+  vars[vars != target & ! vars %in% highlyCorrelated]
+}
+innerGroupVars <- character()
+```
+
 ### Demografia e saúde
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="demografia e saúde", c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | CATEGORIA=="demografia e saúde"])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.demografiaesaude, fig.height=10, fig.width=10, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Demografia e saúde")
+ggp(select(municipal2010, vars), title = "Demografia e saúde")
 ```
 
-Variáveis selecionadas: ESPVIDA, FECTOT, RAZDEP, T_ENV
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 ### Educação
 
 #### Expectativa de anos de estudo e grau de analfabetismo
+
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de analfabetismo"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de analfabetismo"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.educacao.analfabetismo, fig.height=10, fig.width=10, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Educação: Expectativa de anos de estudo e grau de analfabetismo")
+ggp(select(municipal2010, vars), title = "Educação: Expectativa de anos de estudo e grau de analfabetismo")
 ```
 
-Variáveis selecionadas: E_ANOSESTUDO, T_ANALF11A14, T_ANALF15A17, T_ANALF15M, T_ANALF18A24, T_ANALF18M, T_ANALF25A29, T_ANALF25M
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 #### Expectativa de anos de estudo e grau de escolaridade
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de escolaridade"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "grau de escolaridade"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.educacao.escolaridade, fig.height=10, fig.width=15, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Educação: Expectativa de anos de estudo e grau de escolaridade")
+ggp(select(municipal2010, vars), title = "Educação: Expectativa de anos de estudo e grau de escolaridade")
 ```
 
-Variáveis selecionadas: T_FUND15A17, T_FUND16A18, T_FUND18A24, T_FUND18M    T_FUND25M    T_MED18A20,  T_MED18A24   T_MED18M     T_MED19A21   T_MED25M     T_SUPER25M
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 #### Expectativa de anos de estudo e atraso idade-série
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "atraso idade-série"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "atraso idade-série"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.educacao.atraso, fig.height=10, fig.width=15, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Educação: Expectativa de anos de estudo e atraso idade-série")
+ggp(select(municipal2010, vars), title = "Educação: Expectativa de anos de estudo e atraso idade-série")
 ```
 
-Variáveis selecionadas: T_ATRASO_0_MED, T_ATRASO_1_BASICO, T_ATRASO_1_FUND, T_ATRASO_1_MED, T_ATRASO_2_MED
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 #### Expectativa de anos de estudo e atendimento ou frequência simples
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "atendimento ou frequência simples"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "atendimento ou frequência simples"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.educacao.frequenciasimples, fig.height=10, fig.width=15, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Estudo: Expectativa de anos de estudo e atendimento ou frequência simples")
+ggp(select(municipal2010, vars), title = "Estudo: Expectativa de anos de estudo e atendimento ou frequência simples")
 ```
 
-Variáveis selecionadas: T_FREQ0A3, T_FREQ11A14, T_FREQ15A17, T_FREQ18A24, T_FREQ25A29, T_FREQ4A5, T_FREQ4A6, T_FREQ5A6, T_FREQ6, T_FREQ6A14, T_FREQ6A17
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 #### Expectativa de anos de estudo e frequência qualificada
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="educação" & dicionario$SUBCATEGORIA %in% c("expectativa de anos de estudo", "frequência qualificada"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="educação" & SUBCATEGORIA %in% c("expectativa de anos de estudo", "frequência qualificada"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.educacao.frequenciaqualificada, fig.height=10, fig.width=20, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Estudo: Expectativa de anos de estudo e frequência qualificada")
+ggp(select(municipal2010, vars), title = "Estudo: Expectativa de anos de estudo e frequência qualificada")
 ```
 
-Variáveis selecionadas: T_FBBAS, T_FBFUND, T_FBMED, T_FBPR, T_FBSUPER, T_FLBAS, T_FLFUND, T_FLMED, T_FLPRE, T_FLSUPER, T_FREQFUND1517, T_FREQFUND1824, T_FREQFUND45, T_FREQMED1824, T_FREQMED614, T_FREQSUPER1517
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 ### Habitação
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="habitação", c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | CATEGORIA=="habitação"])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.habitacao, fig.height=10, fig.width=10, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Habitação")
+ggp(select(municipal2010, vars), title = "Habitação")
 ```
 
-Variáveis selecionadas: T_AGUA, T_BANAGUA, T_DENS, T_LIXO, T_LUZ, AGUA_ESGOTO, PAREDE, T_SLUZ
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 ### Renda
 
 #### Nível de renda e desigualdade
 ```{r}
-vars <- dicionario %>%
-    filter(CATEGORIA=="renda" &
-               SUBCATEGORIA %in% c("nível de renda", "desigualdade de renda") )%>% #& grepl("CORTE|GINI|RDPC|RIND|RMPOB|RPOB|THEIL", SIGLA)) %>%
-    select(c(2,3,5))
-knitr::kable(vars, row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="renda" & SUBCATEGORIA %in% c("nível de renda", "desigualdade de renda"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.renda.niveledesigualdade, fig.height=20, fig.width=20, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Renda: Nível de renda e desigualdade")
+ggp(select(municipal2010, vars), title = "Renda: Nível de renda e desigualdade")
 ```
 
-Variáveis selecionadas: CORTE1, CORTE2, CORTE3, CORTE4, CORTE9, GINI, PREN10RICOS, PREN20, PREN20RICOS, PREN40, PREN60, PREN80, PRENTRAB, R1040, R2040, RDPC, RDPC1, RDPC10, RDPC2, RDPC3, RDPC4, RDPC5, RDPCT, RIND, RMPOB, RPOB, THEILTRAB
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 #### Pobreza e desigualdade
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="renda" & dicionario$SUBCATEGORIA %in% c("pobreza", "desigualdade de renda"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="renda" & SUBCATEGORIA %in% c("pobreza", "desigualdade de renda"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.renda.pobrezaedesigualdade, fig.height=10, fig.width=10, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Renda: Pobreza e desigualdade")
+ggp(select(municipal2010, vars), title = "Renda: Pobreza e desigualdade")
 ```
 
-Variáveis selelcionadas: PIND, PINDCRI, PMPOB, PMPOBCRI, PPOB, PPOBCRI, R1040, R2040
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 #### Caracterização dos ocupados
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="renda" & dicionario$SUBCATEGORIA %in% c("caracterização dos ocupados"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="renda" & SUBCATEGORIA %in% c("caracterização dos ocupados"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.renda.ocupados, fig.height=15, fig.width=20, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Renda: Caracterização dos ocupados")
+ggp(select(municipal2010, vars), title = "Renda: Caracterização dos ocupados")
 ```
 
-Variáveis selecionadas: CPR, EMP, P_AGRO, P_COM, P_CONSTR, P_EXTR, P_FORMAL, P_FUND, P_MED, P_SERV, P_SIUP, P_SUPER, P_TRANSF, REN0, REN1, REN2, REN3, REN5, RENOCUP, TRABCC, TRABPUB, TRABSC
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 ### População
 
 #### Gênero masculino e faixa etária
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="população" & dicionario$SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("HOME", dicionario$SIGLA), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="população" & SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("HOME", SIGLA))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
+```
+```{r pares.populacao.masculina, fig.height=15, fig.width=20, cache=TRUE}
+ggp(select(municipal2010, vars), title = "População: Gênero masculino e faixa etária")
 ```
 
-```{r pares.populacao.masculina, fig.height=15, fig.width=20, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "População: Gênero masculino e faixa etária")
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
 ```
 
 #### Gênero feminino e faixa etária
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="população" & dicionario$SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("MULH", dicionario$SIGLA), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="população" & SUBCATEGORIA %in% c("gênero e faixa etária", "gênero") & grepl("MULH", SIGLA))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
+```
+```{r pares.populacao.feminina, fig.height=15, fig.width=20, cache=TRUE}
+ggp(select(municipal2010, vars), title = "População: Gênero feminino e faixa etária")
 ```
 
-```{r pares.populacao.feminina, fig.height=15, fig.width=20, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "População: Gênero feminino e faixa etária")
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
 ```
 
 #### Gênero, PEA, residente, permanente, rural, urbana e renda nula
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="população" & dicionario$SUBCATEGORIA %in% c("economicamente ativa (PEA)", "residente e faixa etária", "residente, faixa etária e gênero", "residente rural", "residente total", "residente urbana", "residente permanente", "residente permanente exceto renda nula"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="população" & SUBCATEGORIA %in% c("economicamente ativa (PEA)", "residente e faixa etária", "residente, faixa etária e gênero", "residente rural", "residente total", "residente urbana", "residente permanente", "residente permanente exceto renda nula"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.populacoes, fig.height=20, fig.width=20, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "População: PEA, residente, permanente, rural, urbana e renda nula")
+ggp(select(municipal2010, vars), title = "População: PEA, residente, permanente, rural, urbana e renda nula")
 ```
 
-Variáveis selecionadas: PESORUR, PESOURB
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 ### Trabalho
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="trabalho" & dicionario$SUBCATEGORIA %in% c("atividade e desocupação"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | (CATEGORIA=="trabalho" & SUBCATEGORIA %in% c("atividade e desocupação"))])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.trabalho, fig.height=10, fig.width=10, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Trabalho")
+ggp(select(municipal2010, vars), title = "Trabalho")
 ```
 
-Variáveis selecionadas: T_ATIV, T_ATIV1014, T_ATIV1517, T_DES, T_DES1014, T_DES1517
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 ### Vulnerabilidade
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$CATEGORIA=="vulnerabilidade", c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | CATEGORIA=="vulnerabilidade"])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
 ```
-
 ```{r pares.vulnerabilidade, fig.height=10, fig.width=15, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "Vulnerabilidade")
+ggp(select(municipal2010, vars), title = "Vulnerabilidade")
 ```
 
-Variaveis selecionadas: T_CRIFUNDIN_TODOS, T_FORA4A5, T_FORA6A14, T_M10A14CF, T_M15A17CF, T_MULCHEFEFIF014, T_NESTUDA_NTRAB_MMEIO, T_OCUPDESLOC_1, T_RMAXIDOSO
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva.
+```{r}
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
 
 ### IDHM
            
 ```{r}
-knitr::kable(vars <- dicionario[dicionario$SIGLA %in% c("IDHM", "IDHM_E", "IDHM_L", "IDHM_R",
-                                                        "I_ESCOLARIDADE", "T_FUND18M", "I_FREQ_PROP", "T_FREQ5A6", "T_FUND11A13", "T_FUND15A17", "T_MED18A20",
-                                                        "ESPVIDA",
-                                                        "RDPC"), c(2,3,5)], row.names = FALSE)
+vars <- with(dicionario, SIGLA[SIGLA==target | SIGLA %in% c("IDHM_L", "ESPVIDA",
+                                                            "IDHM_E", "I_ESCOLARIDADE", "T_FUND18M", "I_FREQ_PROP", "T_FREQ5A6", "T_FUND11A13", "T_FUND15A17", "T_MED18A20", 
+                                                            "IDHM_R", "RDPC",
+                                                            "IDHM")])
+knitr::kable(filter(dicionario, SIGLA %in% vars)[c(2,3,5)])
+```
+```{r pares.IDHM, fig.height=15, fig.width=15, cache=TRUE}
+ggp(select(municipal2010, vars), title = "IDHM")
 ```
 
-```{r pares.IDHM, fig.height=15, fig.width=15, cache=TRUE}
-select(municipal2010, vars$SIGLA) %>%
-    ggp(title = "IDHM")
+Variáveis sugeridas:
+```{r}
+(proposedVars <- proposeVars(municipal2010, target, vars, cutoff))
+```
+Estas variáveis serão avaliadas na modelagem preditiva, exceto o `IDHM_L` pois este é calculado diretamente da variável alvo `(ESPVIDA - 25) / (85 - 25)` e seria um vazamento de informação no modelo preditivo.
+```{r}
+proposedVars <- proposedVars[proposedVars!="IDHM_L"]
+innerGroupVars <- c(innerGroupVars, proposedVars)
+```
+
+# Conclusões
+
+Proposta de preditores que não estejam altamente correlacionados dentro dos seus grupos.
+```{r}
+cat(length(innerGroupVars), "preditores:\n")
+cat(paste(innerGroupVars <- unique(innerGroupVars), collapse=", "))
+```
+
+Proposta de preditores que não estejam altamente correlacionados entre seus grupos.
+```{r}
+betweenGroupVars <- proposeVars(municipal2010, target, innerGroupVars, cutoff)
+cat(length(betweenGroupVars), "preditores:\n")
+cat(paste(betweenGroupVars, collapse=", "))
+```
+
+Proposta de preditores que não estejam altamente correlacionados em geral.
+```{r}
+allVars <- proposeVars(municipal2010, target, names(municipal2010[,-(1:8)]), cutoff)
+cat(length(allVars), "preditores:\n")
+cat(paste(allVars, collapse=", "))
 ```
 
 ```{r, echo=FALSE}
