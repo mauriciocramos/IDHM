@@ -56,19 +56,14 @@ packageVersions <- sapply(packages, function(x) paste0(as.character(packageVersi
 noquote(packageVersions)
 ```
 
-# Carga dos dados brutos do atlas municipal
+# Carga dos dados brutos do atlas municipal de 2010
 
 ```{r}
 dicionario <- read.csv2("dicionario.csv", encoding = "UTF-8")
 names(dicionario) <- toupper(iconv(names(dicionario), to="ASCII//TRANSLIT"))
 data <- read.csv2("municipal.csv", encoding = "UTF-8",
-                       colClasses=c(rep("factor",2),rep("character",3),rep("numeric", 232)))
-
+                  colClasses=c(rep("factor",2),rep("character",3),rep("numeric", 232)))
 names(data) <- toupper(iconv(names(data), to="ASCII//TRANSLIT"))
-```
-
-# Seleção dos registros de 2010
-```{r}
 data <- filter(data, ANO=="2010")
 ```
 
@@ -76,6 +71,7 @@ data <- filter(data, ANO=="2010")
 ```{r}
 cluster <- makeCluster(detectCores())
 registerDoParallel(cluster)
+system("ps -f | grep -e mauric+ -e parallel")
 ```
 
 # Seleção das variáveis
@@ -84,20 +80,19 @@ Remoção das variáveis assumidas como irrelevantes
 ```{r}
 data <- select(data, -c("ANO", "UF", "CODMUN6", "CODMUN7", "MUNICIPIO"))
 ```
-Remoção das variáveis dependentes da variável alvo `ESPVIDA` (expectativa de vida ao nascer), i.e., que vazam dados:
+Remoção das variáveis dependentes da variável alvo `ESPVIDA` (expectativa de vida ao nascer) pois seriam um vazamento de dados.
 
-$$IDHM\_L = (ESPVIDA - 25) / (85 - 25)$$
-$$IDHM = (IDHM\_E * IDHM\_L * IDHM\_R) ^{(1/3)}$$
+$$IDHM\_L = \frac{ESPVIDA - 25}{60}$$
+$$IDHM = \sqrt[3]{IDHM\_E * IDHM\_L * IDHM\_R}$$
 ```{r}
 data <- select(data, -c("IDHM", "IDHM_L"))
 ```
-Variáveis altamente correlacionadas, i.e., limite absoluto [0.8]
+Variáveis altamente correlacionadas, i.e., acima do limite [0.8]
 ```{r}
 correlationMatrix <- cor(data[-1])
 highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.8, names=TRUE)
 cat(length(highlyCorrelated), "variáveis: \n")
 cat(paste(highlyCorrelated, collapse=", "))
-#dicionario %>% filter(SIGLA %in% highlyCorrelated) %>% select(CATEGORIA, SIGLA, NOME.CURTO)
 ```
 
 ## Importância variáveis estimada pelo Random Forest
@@ -105,8 +100,8 @@ cat(paste(highlyCorrelated, collapse=", "))
 ### Usando variáveis altamente correlacionadas:
 ```{r}
 set.seed(1)
-# control <- trainControl(method="cv", number=10, verboseIter=TRUE)
-control <- trainControl(method="cv", number=2, verboseIter=TRUE)
+control <- trainControl(method="cv", number=10, verboseIter=TRUE) #?
+# control <- trainControl(method="cv", number=2, verboseIter=TRUE) #1130s
 ptm <- proc.time()
 fit <- train(ESPVIDA ~ ., data=data, method="rf", preProcess="scale", trControl=control, importance=TRUE)
 proc.time() - ptm
@@ -125,10 +120,10 @@ plot(importance, top=20)
 ### Removendo variáveis altamente correlacionadas:
 ```{r}
 set.seed(1)
-# control <- trainControl(method="cv", number=10, verboseIter=TRUE)
-control <- trainControl(method="cv", number=2, verboseIter=TRUE)
+control <- trainControl(method="cv", number=10, verboseIter=TRUE) #?
+# control <- trainControl(method="cv", number=2, verboseIter=TRUE) #335s
 ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., data=data[-highlyCorrelated], method="rf", preProcess="scale", trControl=control, importance=TRUE)
+fit <- train(ESPVIDA ~ ., data=select(data, -highlyCorrelated), method="rf", preProcess="scale", trControl=control, importance=TRUE)
 proc.time() - ptm
 fit
 ``` 
@@ -143,6 +138,8 @@ plot(importance, top=20)
 ```
 
 ## Recursive Feature Elimination (RFE)
+
+### Usando variáveis altamente correlacionadas:
 ```{r}
 library(doMC)
 registerDoMC(cores = parallel::detectCores())
@@ -150,7 +147,7 @@ set.seed(1)
 control <- rfeControl(functions=rfFuncs, method="cv", number=10)
 ptm <- proc.time()
 # results <- rfe(data[,-1], data[,1], sizes=c(1:8), rfeControl=control)
-results <- rfe(data[,-1], data[,1], sizes=2^(2:4), rfeControl=control)
+results <- rfe(data[,-1], data[,1], sizes=1:229, rfeControl=control)
 proc.time() - ptm
 results
 ```
@@ -163,6 +160,27 @@ predictors(results)
 plot(results, type=c("g", "o"))
 ```
 
+### Removendo variáveis altamente correlacionadas:
+
+```{r}
+library(doMC)
+registerDoMC(cores = parallel::detectCores())
+set.seed(1)
+control <- rfeControl(functions=rfFuncs, method="cv", number=10)
+ptm <- proc.time()
+# results <- rfe(data[,-1], data[,1], sizes=c(1:8), rfeControl=control)
+results <- rfe(select(data,-1, -highlyCorrelated), data[,1], sizes=1:68, rfeControl=control)
+proc.time() - ptm
+results
+```
+
+```{r}
+predictors(results)
+```
+
+```{r}
+plot(results, type=c("g", "o"))
+```
 # Pré-processamento das variáveis
 
 ## Normalização dos valores
@@ -284,6 +302,7 @@ postResample(predict(fit, testing), testing$ESPVIDA)
 ```{r}
 stopCluster(cluster)
 registerDoSEQ()
+system("ps -f | grep -e mauric+ -e parallel")
 ```
 
 ```{r, echo=FALSE}
