@@ -42,13 +42,13 @@ R.version.string
 
 Pacotes R:
 ```{r}
-packages <- c("plyr", "ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest", "e1071", "xgboost", "gbm", "survival", "splines") #e1071
-loaded <- suppressMessages(suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE)))
+packages <- c("plyr", "ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest", "e1071", "xgboost", "gbm")
+loaded <- sapply(packages, require, character.only=TRUE, warn.conflicts=TRUE, quietly=FALSE)
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
     message("Installing package(s) ", paste(missingPackages, collapse=", "))
     install.packages(missingPackages, dependencies = TRUE)
-    installed <- suppressWarnings(sapply(missingPackages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
+    installed <- ssapply(missingPackages, require, character.only=TRUE, warn.conflicts=TRUE, quietly=FALSE)
     if(!all(installed)) stop("Package(s) not installed: ", paste(missingPackages[installed==FALSE], collapse=", "))
     
 }
@@ -58,7 +58,7 @@ noquote(packageVersions)
 
 # Habilitando processamento paralelo
 ```{r}
-cluster <- makeCluster(detectCores())
+cluster <- makeCluster(detectCores()-1)
 registerDoParallel(cluster)
 noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
 ```
@@ -94,29 +94,32 @@ cat(paste(highlyCorrelated, collapse=", "))
 # Teste de multiplos modelos
 
 ```{r}
-models <- expand.grid(
-    method = list("glm", "svmLinear2", "knn", "rf", "rpart", "gbm", "xgbTree"),
-    variables = list(noHighCor=names(data)[! names(data) %in% highlyCorrelated],
-                     all=names(data)),
-    partition = list(.1, .2),#, .3, .4, .5, .6, .7, .8, .9),
-    preProcess = list(null = NULL,
-                      center = "center",
-                      scale = "scale",
-                      pca = "pca",
-                      center_scale = c("center", "scale"),
-                      center_pca = c("center", "pca"),
-                      scale_pca = c("scale", "pca"),
-                      center_scale_pca = c("center", "scale", "pca")),
-    train = list(NA),
-    time = list(NA),
-    performance = list(NA))
-models <- as.list(as.data.frame(t(models), optional = TRUE))
+if(!file.exists("models.RDS")) {
+    models <- expand.grid(
+        method = list("glm", "svmLinear2", "knn", "rf", "rpart", "gbm", "xgbTree"),
+        variables = list(noHighCor=names(data)[! names(data) %in% highlyCorrelated],
+                         all=names(data)),
+        partition = list(.1, .2, .3),#, .4, .5, .6, .7, .8, .9),
+        preProcess = list(null = NULL,
+                          center = "center",
+                          scale = "scale",
+                          pca = "pca",
+                          center_scale = c("center", "scale"),
+                          center_pca = c("center", "pca"),
+                          scale_pca = c("scale", "pca"),
+                          center_scale_pca = c("center", "scale", "pca")),
+        #train = list(NA),
+        time = list(NA),
+        performance = list(NA))
+    models <- as.list(as.data.frame(t(models), optional = TRUE))
+} else  models <- readRDS("models.RDS")
 ```
 ```{r}
 for(i in seq(models)) {
+    if(all(!is.na(models[[i]]$time) & any(!is.na(models[[i]]$performance)))) next
     with(models[[i]], message("\n[",Sys.time(),"]",
                               " #",i,"/",length(models),
-                              " training: ",
+                              " training:",
                               " method=", method,
                               " nvar=", length(variables), 
                               " %rows=", partition,
@@ -124,24 +127,19 @@ for(i in seq(models)) {
     set.seed(1)
     inTraining <- createDataPartition(data$ESPVIDA, p = models[[i]]$partition, list = FALSE)
     time <- proc.time()
-    models[[i]]$train <- train(ESPVIDA ~ ., data[inTraining, models[[i]]$variables],
-                               #importance=NULL, #rf
-                               #verbose=FALSE, #gbm
-                               method = models[[i]]$method,
-                               preProcess = models[[i]]$preProcess,
-                               trControl = trainControl(method = "cv", number = 2, search = "grid"))
+    fit <- train(ESPVIDA ~ ., data[inTraining, models[[i]]$variables],
+                 #importance=NULL, #rf
+                 #verbose=FALSE, #gbm
+                 method = models[[i]]$method,
+                 preProcess = models[[i]]$preProcess,
+                 trControl = trainControl(method = "cv", number = 2, search = "grid"))
     models[[i]]$time <- proc.time() - time
-    with(models[[i]], message("\n\tRSME=", performance[[1]], " elapsed=", time[3]))
-    models[[i]]$performance <- postResample(predict(models[[i]]$train,
-                                                    data[-inTraining, models[[i]]$variables]),
+    models[[i]]$performance <- postResample(predict(fit, data[-inTraining, models[[i]]$variables]),
                                             data$ESPVIDA[-inTraining])
-    rm(time); rm(inTraining)
+    with(models[[i]], message("\n\tRSME=", performance[[1]], " elapsed=", time[3]))
+    rm(fit); rm(time); rm(inTraining)
     saveRDS(models, "models.RDS")
 }
-
-```
-```{r}
-models <- readRDS("models.RDS")
 ```
 ```{r}
 bind_rows(lapply(models, function(x) data.frame(method=x$method,
