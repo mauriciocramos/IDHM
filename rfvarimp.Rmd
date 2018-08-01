@@ -1,0 +1,152 @@
+---
+title: "Random Forest Variable Importance"
+author: "Maurício Collaça Ramos"
+date: "31/07/2018"
+output: 
+  html_document: 
+    code_folding: hide
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+    toc_float:
+        collapsed: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = "")
+options(width = 130)
+t0<-proc.time()
+```
+
+# Recursos computacionais
+
+Sistema Operacional:
+```{r}
+paste(Sys.info()[1:3], collapse = " ")
+```
+
+Processadores:
+```{r}
+parallel::detectCores()
+```
+
+Memória:
+```{r}
+if(Sys.info()[1]=="Windows") paste(round(memory.limit()/1024,1),"Gb") else cat(system("free -h", intern = TRUE), sep='\n')
+```
+
+Linguagem:
+```{r}
+R.version.string
+```
+
+Pacotes R:
+```{r}
+packages <- c("plyr", "ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest")
+loaded <- suppressMessages(suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE)))
+if(!all(loaded)) {
+    missingPackages <- packages[loaded==FALSE]
+    message("Installing package(s) ", paste(missingPackages, collapse=", "))
+    install.packages(missingPackages, dependencies = TRUE)
+    installed <- suppressWarnings(sapply(missingPackages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE))
+    if(!all(installed)) stop("Package(s) not installed: ", paste(missingPackages[installed==FALSE], collapse=", "))
+    
+}
+packageVersions <- sapply(packages, function(x) paste0(as.character(packageVersion(x)), collapse="."))
+noquote(packageVersions)
+```
+
+# Carga dos dados brutos do atlas municipal de 2010
+
+```{r}
+dicionario <- read.csv2("dicionario.csv", encoding = "UTF-8")
+names(dicionario) <- toupper(iconv(names(dicionario), to="ASCII//TRANSLIT"))
+data <- read.csv2("municipal.csv", encoding = "UTF-8",
+                  colClasses=c(rep("factor",2),rep("character",3),rep("numeric", 232)))
+names(data) <- toupper(iconv(names(data), to="ASCII//TRANSLIT"))
+data <- filter(data, ANO=="2010")
+```
+
+# Habilitando processamento paralelo
+```{r}
+cluster <- makeCluster(detectCores())
+registerDoParallel(cluster)
+noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
+```
+
+# Seleção das variáveis
+
+Remoção das variáveis assumidas como irrelevantes
+```{r}
+data <- select(data, -c("ANO", "UF", "CODMUN6", "CODMUN7", "MUNICIPIO"))
+```
+Remoção das variáveis dependentes da variável alvo `ESPVIDA` (expectativa de vida ao nascer) pois seriam um vazamento de dados no modelo.
+
+$$IDHM\_L = \frac{ESPVIDA - 25}{60}$$
+$$IDHM = \sqrt[3]{IDHM\_E * IDHM\_L * IDHM\_R}$$
+```{r}
+data <- select(data, -c("IDHM", "IDHM_L"))
+```
+Variáveis altamente correlacionadas
+```{r}
+correlationMatrix <- cor(data[-1])
+highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.8, names=TRUE)
+cat(length(highlyCorrelated), "variáveis: \n")
+cat(paste(highlyCorrelated, collapse=", "))
+```
+
+## Importância das variáveis estimada pelo Random Forest
+
+### Usando variáveis altamente correlacionadas:
+```{r}
+set.seed(1)
+control <- trainControl(method="cv", number=10, verboseIter=TRUE)
+t1 <- proc.time()
+fit <- train(ESPVIDA ~ ., data=data, method="rf", preProcess="scale", trControl=control, importance=TRUE)
+proc.time() - t1
+fit
+``` 
+```{r}
+t1 <- proc.time()
+importance <- varImp(fit, scale=FALSE)
+proc.time() - t1
+importance
+```
+```{r}
+plot(importance, top=20)
+```
+
+### Removendo variáveis altamente correlacionadas:
+```{r}
+set.seed(1)
+control <- trainControl(method="cv", number=10, verboseIter=TRUE)
+t1 <- proc.time()
+fit <- train(ESPVIDA ~ ., data=select(data, -highlyCorrelated), method="rf", preProcess="scale", trControl=control, importance=TRUE)
+proc.time() - t1
+fit
+``` 
+```{r}
+t1 <- proc.time()
+importance <- varImp(fit, scale=FALSE)
+proc.time() - t1
+importance
+```
+```{r}
+plot(importance, top=20)
+```
+
+# Desabilitando processamento paralelo
+```{r}
+stopCluster(cluster)
+registerDoSEQ()
+noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
+```
+
+```{r, echo=FALSE}
+date()
+proc.time() - t0
+```

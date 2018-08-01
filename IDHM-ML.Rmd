@@ -15,7 +15,7 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, comment = "")
 options(width = 130)
-t0<-proc.time()
+t0 <- proc.time()
 ```
 
 # Recursos computacionais
@@ -56,253 +56,127 @@ packageVersions <- sapply(packages, function(x) paste0(as.character(packageVersi
 noquote(packageVersions)
 ```
 
-# Carga dos dados brutos do atlas municipal de 2010
-
+# Habilitando processamento paralelo
 ```{r}
-dicionario <- read.csv2("dicionario.csv", encoding = "UTF-8")
-names(dicionario) <- toupper(iconv(names(dicionario), to="ASCII//TRANSLIT"))
+cluster <- makeCluster(detectCores())
+registerDoParallel(cluster)
+noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
+```
+
+# Carga dos dados brutos do atlas municipal de 2010
+```{r}
 data <- read.csv2("municipal.csv", encoding = "UTF-8",
                   colClasses=c(rep("factor",2),rep("character",3),rep("numeric", 232)))
 names(data) <- toupper(iconv(names(data), to="ASCII//TRANSLIT"))
 data <- filter(data, ANO=="2010")
 ```
 
-# Habilitando processamento paralelo
-```{r}
-cluster <- makeCluster(detectCores())
-registerDoParallel(cluster)
-system("ps -f | grep -e mauric+ -e parallel")
-```
-
 # Seleção das variáveis
 
-Remoção das variáveis assumidas como irrelevantes
+Remoção das variáveis identificadoras das observações, assumidas como irrelevantes para o modelo preditivo.
 ```{r}
 data <- select(data, -c("ANO", "UF", "CODMUN6", "CODMUN7", "MUNICIPIO"))
 ```
-Remoção das variáveis dependentes da variável alvo `ESPVIDA` (expectativa de vida ao nascer) pois seriam um vazamento de dados.
+Remoção das variáveis dependentes da variável alvo `ESPVIDA` (expectativa de vida ao nascer) pois seriam um vazamento de dados no modelo preditivo.
 
 $$IDHM\_L = \frac{ESPVIDA - 25}{60}$$
 $$IDHM = \sqrt[3]{IDHM\_E * IDHM\_L * IDHM\_R}$$
 ```{r}
 data <- select(data, -c("IDHM", "IDHM_L"))
 ```
-Variáveis altamente correlacionadas, i.e., acima do limite [0.8]
+Variáveis altamente correlacionadas
 ```{r}
-correlationMatrix <- cor(data[-1])
-highlyCorrelated <- findCorrelation(correlationMatrix, cutoff=0.8, names=TRUE)
+highlyCorrelated <- findCorrelation(cor(data[-1]), cutoff=0.8, names=TRUE)
 cat(length(highlyCorrelated), "variáveis: \n")
 cat(paste(highlyCorrelated, collapse=", "))
 ```
 
-## Importância variáveis estimada pelo Random Forest
-
-### Usando variáveis altamente correlacionadas:
-```{r}
-set.seed(1)
-control <- trainControl(method="cv", number=10, verboseIter=TRUE) #?
-# control <- trainControl(method="cv", number=2, verboseIter=TRUE) #1130s
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., data=data, method="rf", preProcess="scale", trControl=control, importance=TRUE)
-proc.time() - ptm
-fit
-``` 
-```{r}
-ptm <- proc.time()
-importance <- varImp(fit, scale=FALSE)
-proc.time() - ptm
-importance
-```
-```{r}
-plot(importance, top=20)
-```
-
-### Removendo variáveis altamente correlacionadas:
-```{r}
-set.seed(1)
-control <- trainControl(method="cv", number=10, verboseIter=TRUE) #?
-# control <- trainControl(method="cv", number=2, verboseIter=TRUE) #335s
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., data=select(data, -highlyCorrelated), method="rf", preProcess="scale", trControl=control, importance=TRUE)
-proc.time() - ptm
-fit
-``` 
-```{r}
-ptm <- proc.time()
-importance <- varImp(fit, scale=FALSE)
-proc.time() - ptm
-importance
-```
-```{r}
-plot(importance, top=20)
-```
-
-## Recursive Feature Elimination (RFE)
-
-### Usando variáveis altamente correlacionadas:
-```{r}
-library(doMC)
-registerDoMC(cores = parallel::detectCores())
-set.seed(1)
-control <- rfeControl(functions=rfFuncs, method="cv", number=10)
-ptm <- proc.time()
-# results <- rfe(data[,-1], data[,1], sizes=c(1:8), rfeControl=control)
-results <- rfe(data[,-1], data[,1], sizes=1:229, rfeControl=control)
-proc.time() - ptm
-results
-```
+# Teste de multiplos modelos
 
 ```{r}
-predictors(results)
+models <- expand.grid(
+    variables = list(noHighCor=names(data)[! names(data) %in% highlyCorrelated],
+                     all=names(data)),
+    percentage = list(.1, .2, .3, .4, .5, .6, .7, .8, .9),
+    preProcess = list(null = NULL,
+                      center = "center",
+                      scale = "scale",
+                      pca = "pca",
+                      center_scale = c("center", "scale"),
+                      center_pca = c("center", "pca"),
+                      scale_pca = c("scale", "pca"),
+                      center_scale_pca = c("center", "scale", "pca")),
+    method = list("glm", "svmLinear2", "knn", "rf", "rpart", "gbm", "knn", "xgbTree"))
+models <- as.list(as.data.frame(t(models), optional = TRUE))
 ```
-
 ```{r}
-plot(results, type=c("g", "o"))
+for(i in seq(models)) {
+    with(models[[i]], message(i,"/",length(models)," Training: vars=", length(variables), 
+                              " percent=", percentage, " pre=(", paste(preProcess, collapse=","),
+                              ") method=", method))
+    set.seed(1)
+    inTraining <- createDataPartition(data$ESPVIDA, p = models[[i]]$percentage, list = FALSE)
+    time <- proc.time()
+    models[[i]]$fit <- train(ESPVIDA ~ ., data[inTraining, models[[i]]$variables],
+                             #importance=NULL, #rf
+                             #verbose=FALSE, #gbm
+                             method = models[[i]]$method,
+                             preProcess = models[[i]]$preProcess,
+                             trControl = trainControl(method="cv", number=2, search="grid"))
+    models[[i]]$time <- proc.time() - time
+    models[[i]]$performance <- postResample(predict(models[[i]]$fit,
+                                                    data[-inTraining, models[[i]]$variables]),
+                                            data$ESPVIDA[-inTraining])
+    rm(time); rm(inTraining)
+}
+saveRDS(models, "models.RDS")
 ```
-
-### Removendo variáveis altamente correlacionadas:
-
 ```{r}
-library(doMC)
-registerDoMC(cores = parallel::detectCores())
-set.seed(1)
-control <- rfeControl(functions=rfFuncs, method="cv", number=10)
-ptm <- proc.time()
-# results <- rfe(data[,-1], data[,1], sizes=c(1:8), rfeControl=control)
-results <- rfe(select(data,-1, -highlyCorrelated), data[,1], sizes=1:68, rfeControl=control)
-proc.time() - ptm
-results
+bind_rows(lapply(models, function(x) data.frame(variables=length(x$variables),
+                                                percentage=x$percentage,
+                                                preProcess=paste(x$preProcess, collapse=","),
+                                                method=x$method,
+                                                RSME=x$performance[[1]],
+                                                elapsed=x$time[3],
+                                                stringsAsFactors = FALSE))) %>% arrange(RSME)
 ```
 
-```{r}
-predictors(results)
-```
+<!-- # Particionamento dos dados de treino e teste -->
+<!-- ```{r} -->
+<!-- #TODO: https://topepo.github.io/caret/subsampling-for-class-imbalances.html -->
+<!-- #TODO: https://topepo.github.io/caret/data-splitting.html#splitting-based-on-the-predictors -->
+<!-- #TODO: https://topepo.github.io/caret/data-splitting.html#simple-splitting-with-important-groups -->
 
-```{r}
-plot(results, type=c("g", "o"))
-```
-# Pré-processamento das variáveis
+<!-- set.seed(1) -->
+<!-- inTraining <- createDataPartition(data$ESPVIDA, p = .1, list = FALSE) -->
+<!-- training <- data[ inTraining,] -->
+<!-- testing  <- data[-inTraining,] -->
+<!-- ``` -->
 
-## Normalização dos valores
-```{r}
-#TODO
-```
+<!-- ## Random Forest com reamostragem em validação cruzada de 5 folds -->
+<!-- ```{r, cache=TRUE} -->
+<!-- set.seed(1) -->
+<!-- t1 <- proc.time() -->
 
-## Análise de Componentes Principais
-```{r}
-#TODO
-```
-
-# Particionamento dos dados de treino e teste
-
-```{r}
-#TODO: https://topepo.github.io/caret/subsampling-for-class-imbalances.html
-#TODO: https://topepo.github.io/caret/data-splitting.html#splitting-based-on-the-predictors
-#TODO: https://topepo.github.io/caret/data-splitting.html#simple-splitting-with-important-groups
-
-set.seed(1)
-inTraining <- createDataPartition(data$ESPVIDA, p = .60, list = FALSE)
-training <- data[ inTraining,]
-testing  <- data[-inTraining,]
-```
-
-# Seleção de algoritmos e hiperparâmetros
-
-## 1 - Random Forest sem reamostragem
-```{r, cache=TRUE}
-set.seed(1)
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, trControl = trainControl(method = "none", verboseIter=TRUE))
-proc.time() - ptm #note 43s icict 28s
-fit
-postResample(predict(fit, testing), testing$ESPVIDA)
-```
-
-## 2 - Random Forest com reamostragem em validação cruzada de 2 folds
-```{r, cache=TRUE}
-set.seed(1)
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=2, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
-proc.time() - ptm #note 748s icict 419s
-fit
-postResample(predict(fit, testing), testing$ESPVIDA)
-```
-
-## 3 - Random Forest com reamostragem em validação cruzada de 5 folds
-```{r, cache=TRUE}
-set.seed(1)
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=5, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
-proc.time() - ptm
-fit
-postResample(predict(fit, testing), testing$ESPVIDA)
-```
-
-## 4 - Random Forest com reamostragem em validação cruzada de 10 folds
-```{r, cache=TRUE}
-set.seed(1)
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="cv", number=10, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
-proc.time() - ptm
-fit
-postResample(predict(fit, testing), testing$ESPVIDA)
-```
-
-## 5 - Random Forest com reamostragem em bootstrap de 2 iterações
-```{r, cache=TRUE}
-set.seed(1)
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=2, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
-proc.time() - ptm
-fit
-postResample(predict(fit, testing), testing$ESPVIDA)
-```
-
-## 6 - Random Forest com reamostragem em bootstrap de 5 iterações
-```{r, cache=TRUE}
-set.seed(1)
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=5, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
-proc.time() - ptm
-fit
-postResample(predict(fit, testing), testing$ESPVIDA)
-```
-
-## 7 - Random Forest com reamostragem em bootstrap de 10 iterações
-```{r, cache=TRUE}
-set.seed(1)
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=10, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
-proc.time() - ptm
-fit
-postResample(predict(fit, testing), testing$ESPVIDA)
-```
-
-## 8 - Random Forest com reamostragem em bootstrap de 20 iterações
-```{r, cache=TRUE}
-set.seed(1)
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=20, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
-proc.time() - ptm
-fit
-postResample(predict(fit, testing), testing$ESPVIDA)
-```
-
-## 9 - Random Forest com reamostragem em bootstrap de 25 iterações
-```{r, cache=TRUE}
-set.seed(1)
-ptm <- proc.time()
-fit <- train(ESPVIDA ~ ., training, method="rf", preProcess=NULL, trControl=trainControl(method="boot", number=25, search="grid", verboseIter=TRUE), tuneGrid=NULL, tuneLength=3)
-proc.time() - ptm
-fit
-postResample(predict(fit, testing), testing$ESPVIDA)
-```
+<!-- fit <- train(ESPVIDA ~ ., training, method="rf", -->
+<!--              # trControl=trainControl(method="cv", number=5, search="grid")) -->
+<!--              trControl=trainControl(method = "none")) -->
+<!-- proc.time() - t1 -->
+<!-- fit -->
+<!-- postResample(predict(fit, testing), testing$ESPVIDA) -->
+<!-- ``` -->
+<!-- ```{r} -->
+<!-- importance <- varImp(fit, scale=FALSE) -->
+<!-- ``` -->
+<!-- ```{r} -->
+<!-- plot(importance, top=20) -->
+<!-- ``` -->
 
 # Desabilitando processamento paralelo
 ```{r}
 stopCluster(cluster)
 registerDoSEQ()
-system("ps -f | grep -e mauric+ -e parallel")
+noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
 ```
 
 ```{r, echo=FALSE}
