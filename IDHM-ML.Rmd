@@ -42,7 +42,7 @@ R.version.string
 
 Pacotes R:
 ```{r}
-packages <- c("plyr", "ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest")
+packages <- c("plyr", "ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest") #e1071
 loaded <- suppressMessages(suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE)))
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
@@ -95,9 +95,7 @@ cat(paste(highlyCorrelated, collapse=", "))
 
 ```{r}
 models <- expand.grid(
-    variables = list(noHighCor=names(data)[! names(data) %in% highlyCorrelated],
-                     all=names(data)),
-    percentage = list(.1, .2, .3, .4, .5, .6, .7, .8, .9),
+    method = list("glm", "svmLinear2", "knn", "rf", "rpart", "gbm", "xgbTree"),
     preProcess = list(null = NULL,
                       center = "center",
                       scale = "scale",
@@ -106,39 +104,47 @@ models <- expand.grid(
                       center_pca = c("center", "pca"),
                       scale_pca = c("scale", "pca"),
                       center_scale_pca = c("center", "scale", "pca")),
-    method = list("glm", "svmLinear2", "knn", "rf", "rpart", "gbm", "knn", "xgbTree"))
+    partition = list(.1),#, .3, .4, .5, .6, .7, .8, .9),
+    variables = list(noHighCor=names(data)[! names(data) %in% highlyCorrelated],
+                     all=names(data)),
+    train = list(NA),
+    time = list(NA),
+    performance = list(NA))
 models <- as.list(as.data.frame(t(models), optional = TRUE))
 ```
 ```{r}
 for(i in seq(models)) {
-    with(models[[i]], message(i,"/",length(models)," Training: vars=", length(variables), 
-                              " percent=", percentage, " pre=(", paste(preProcess, collapse=","),
+    with(models[[i]], message("\n[",Sys.time(),"] #",i,"/",length(models)," training: nvar=", length(variables), 
+                              " %rows=", partition, " preProc=(", paste(preProcess, collapse=","),
                               ") method=", method))
     set.seed(1)
-    inTraining <- createDataPartition(data$ESPVIDA, p = models[[i]]$percentage, list = FALSE)
+    inTraining <- createDataPartition(data$ESPVIDA, p = models[[i]]$partition, list = FALSE)
     time <- proc.time()
-    models[[i]]$fit <- train(ESPVIDA ~ ., data[inTraining, models[[i]]$variables],
-                             #importance=NULL, #rf
-                             #verbose=FALSE, #gbm
-                             method = models[[i]]$method,
-                             preProcess = models[[i]]$preProcess,
-                             trControl = trainControl(method="cv", number=2, search="grid"))
+    models[[i]]$train <- train(ESPVIDA ~ ., data[inTraining, models[[i]]$variables],
+                               #importance=NULL, #rf
+                               #verbose=FALSE, #gbm
+                               method = models[[i]]$method,
+                               preProcess = models[[i]]$preProcess,
+                               trControl = trainControl(method = "cv", number = 2, search = "grid"))
     models[[i]]$time <- proc.time() - time
-    models[[i]]$performance <- postResample(predict(models[[i]]$fit,
+    with(models[[i]], message("\n\tRSME=", performance[[1]], " elapsed=" time[3])
+    models[[i]]$performance <- postResample(predict(models[[i]]$train,
                                                     data[-inTraining, models[[i]]$variables]),
                                             data$ESPVIDA[-inTraining])
     rm(time); rm(inTraining)
+    saveRDS(models, "models.RDS")
 }
-saveRDS(models, "models.RDS")
+
 ```
 ```{r}
-bind_rows(lapply(models, function(x) data.frame(variables=length(x$variables),
-                                                percentage=x$percentage,
+models <- readRDS("models.RDS")
+bind_rows(lapply(models, function(x) data.frame(method=x$method,
                                                 preProcess=paste(x$preProcess, collapse=","),
-                                                method=x$method,
+                                                partition=x$partition,
+                                                variables=length(x$variables),
                                                 RSME=x$performance[[1]],
                                                 elapsed=x$time[3],
-                                                stringsAsFactors = FALSE))) %>% arrange(RSME)
+                                                stringsAsFactors = FALSE)))# %>% arrange(RSME)
 ```
 
 <!-- # Particionamento dos dados de treino e teste -->
@@ -176,7 +182,7 @@ bind_rows(lapply(models, function(x) data.frame(variables=length(x$variables),
 ```{r}
 stopCluster(cluster)
 registerDoSEQ()
-noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
+noquote(system("ps -auxf | grep -e maurici+", intern=TRUE))
 ```
 
 ```{r, echo=FALSE}
