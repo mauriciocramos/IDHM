@@ -42,7 +42,7 @@ R.version.string
 
 Pacotes R:
 ```{r}
-packages <- c("plyr", "ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest") #e1071
+packages <- c("plyr", "ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest", "e1071", "xgboost", "gbm", "survival", "splines") #e1071
 loaded <- suppressMessages(suppressWarnings(sapply(packages, require, character.only=TRUE, warn.conflicts=FALSE, quietly=TRUE)))
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
@@ -96,6 +96,9 @@ cat(paste(highlyCorrelated, collapse=", "))
 ```{r}
 models <- expand.grid(
     method = list("glm", "svmLinear2", "knn", "rf", "rpart", "gbm", "xgbTree"),
+    variables = list(noHighCor=names(data)[! names(data) %in% highlyCorrelated],
+                     all=names(data)),
+    partition = list(.1, .2),#, .3, .4, .5, .6, .7, .8, .9),
     preProcess = list(null = NULL,
                       center = "center",
                       scale = "scale",
@@ -104,9 +107,6 @@ models <- expand.grid(
                       center_pca = c("center", "pca"),
                       scale_pca = c("scale", "pca"),
                       center_scale_pca = c("center", "scale", "pca")),
-    partition = list(.1),#, .3, .4, .5, .6, .7, .8, .9),
-    variables = list(noHighCor=names(data)[! names(data) %in% highlyCorrelated],
-                     all=names(data)),
     train = list(NA),
     time = list(NA),
     performance = list(NA))
@@ -114,9 +114,13 @@ models <- as.list(as.data.frame(t(models), optional = TRUE))
 ```
 ```{r}
 for(i in seq(models)) {
-    with(models[[i]], message("\n[",Sys.time(),"] #",i,"/",length(models)," training: nvar=", length(variables), 
-                              " %rows=", partition, " preProc=(", paste(preProcess, collapse=","),
-                              ") method=", method))
+    with(models[[i]], message("\n[",Sys.time(),"]",
+                              " #",i,"/",length(models),
+                              " training: ",
+                              " method=", method,
+                              " nvar=", length(variables), 
+                              " %rows=", partition,
+                              " preProc=", paste(preProcess, collapse="+")))
     set.seed(1)
     inTraining <- createDataPartition(data$ESPVIDA, p = models[[i]]$partition, list = FALSE)
     time <- proc.time()
@@ -127,7 +131,7 @@ for(i in seq(models)) {
                                preProcess = models[[i]]$preProcess,
                                trControl = trainControl(method = "cv", number = 2, search = "grid"))
     models[[i]]$time <- proc.time() - time
-    with(models[[i]], message("\n\tRSME=", performance[[1]], " elapsed=" time[3])
+    with(models[[i]], message("\n\tRSME=", performance[[1]], " elapsed=", time[3]))
     models[[i]]$performance <- postResample(predict(models[[i]]$train,
                                                     data[-inTraining, models[[i]]$variables]),
                                             data$ESPVIDA[-inTraining])
@@ -138,10 +142,12 @@ for(i in seq(models)) {
 ```
 ```{r}
 models <- readRDS("models.RDS")
+```
+```{r}
 bind_rows(lapply(models, function(x) data.frame(method=x$method,
-                                                preProcess=paste(x$preProcess, collapse=","),
-                                                partition=x$partition,
                                                 variables=length(x$variables),
+                                                partition=x$partition,
+                                                preProcess=paste(x$preProcess, collapse=","),
                                                 RSME=x$performance[[1]],
                                                 elapsed=x$time[3],
                                                 stringsAsFactors = FALSE)))# %>% arrange(RSME)
