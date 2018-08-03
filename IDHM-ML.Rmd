@@ -42,7 +42,7 @@ R.version.string
 
 Pacotes R:
 ```{r}
-packages <- c("caret", "parallel", "doParallel", "randomForest", "e1071", "xgboost", "gbm")
+packages <- c("ggplot2", "caret", "parallel", "doParallel", "randomForest")
 loaded <- sapply(packages, require, character.only=TRUE, warn.conflicts=TRUE, quietly=FALSE)
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
@@ -56,11 +56,11 @@ packageVersions <- sapply(packages, function(x) paste0(as.character(packageVersi
 noquote(packageVersions)
 ```
 
-# Habilitando processamento paralelo
+Habilitando processamento paralelo com `r detectCores()` processadores.
 ```{r}
 cluster <- makeCluster(detectCores())
 registerDoParallel(cluster)
-if(Sys.info()[1]=="Linux") noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
+if(Sys.info()[1]=="Linux") noquote(system("ps --ppid1 -o %cpu,%mem,cmd | grep parallel", intern=TRUE))
 ```
 
 # Carga dos dados brutos do atlas municipal de 2010
@@ -85,100 +85,64 @@ $$IDHM = \sqrt[3]{IDHM\_E * IDHM\_L * IDHM\_R}$$
 data <- subset(data, select = -c(IDHM, IDHM_L))
 ```
 
-# Teste de multiplos modelos
-
+# Particionamento dos dados de treino e teste (80/20)
 ```{r}
-if(!file.exists("models.RDS")) {
-    models <- expand.grid(
-        method = list("glm", "svmLinear2", "knn", "rf", "rpart", "gbm", "xgbTree"),
-        partition = list(.1, .2, .3, .4, .5, .6, .7, .8, .9),
-        preProcess = list(null = NULL,
-                          center = "center",
-                          scale = "scale",
-                          pca = "pca",
-                          center_scale = c("center", "scale"),
-                          center_pca = c("center", "pca"),
-                          scale_pca = c("scale", "pca"),
-                          center_scale_pca = c("center", "scale", "pca")),
-        time = list(NA),
-        performance = list(NA))
-    models <- as.list(as.data.frame(t(models), optional = TRUE))
-} else  models <- readRDS("models.RDS")
-```
-```{r}
-for(i in seq(models)) {
-    if(all(!is.na(models[[i]]$time) & any(!is.na(models[[i]]$performance)))) next
-    with(models[[i]], message("\n[",Sys.time(),"]",
-                              " #",i,"/",length(models),
-                              " training:",
-                              " method=", method,
-                              " %rows=", partition,
-                              " preProc=", paste(preProcess, collapse="+")))
-    set.seed(1)
-    inTraining <- createDataPartition(data$ESPVIDA, p = models[[i]]$partition, list = FALSE)
-    time <- proc.time()
-    fit <- train(ESPVIDA ~ ., data[inTraining, ],
-                 #importance=NULL, #rf
-                 #verbose=FALSE, #gbm
-                 method = models[[i]]$method,
-                 preProcess = models[[i]]$preProcess,
-                 trControl = trainControl(method = "cv", number = 2, search = "grid"))
-    models[[i]]$time <- proc.time() - time
-    models[[i]]$performance <- postResample(predict(fit, data[-inTraining, ]),
-                                            data$ESPVIDA[-inTraining])
-    with(models[[i]], message("\n\tRMSE=", performance[[1]], " elapsed=", time[3]))
-    rm(fit); rm(time); rm(inTraining)
-    saveRDS(models, "models.RDS")
-}
-```
-```{r}
-(summary <- Reduce(rbind, lapply(models, function(x) {
-    data.frame(method=x$method,
-               partition=x$partition,
-               preProcess=paste(x$preProcess, collapse=","),
-               RMSE=x$performance[[1]],
-               elapsed=x$time[[3]],stringsAsFactors = FALSE)
-})))
+set.seed(1)
+inTraining <- createDataPartition(data$ESPVIDA, p = .8, list = FALSE)
+training <- data[ inTraining,]
+testing  <- data[-inTraining,]
 ```
 
-<!-- # Particionamento dos dados de treino e teste -->
-<!-- ```{r} -->
-<!-- #TODO: https://topepo.github.io/caret/subsampling-for-class-imbalances.html -->
-<!-- #TODO: https://topepo.github.io/caret/data-splitting.html#splitting-based-on-the-predictors -->
-<!-- #TODO: https://topepo.github.io/caret/data-splitting.html#simple-splitting-with-important-groups -->
+## Representatividade da amostra
+```{r}
+series <- data["ESPVIDA"]
+series$amostra <- ifelse(seq(nrow(data)) %in% inTraining, "treino", "teste")
+ggplot(series) + geom_density(aes(ESPVIDA, color=amostra), size=1) +
+    labs(title="Distribuição da expectativa de vida nas amostras")
+```
 
-<!-- set.seed(1) -->
-<!-- inTraining <- createDataPartition(data$ESPVIDA, p = .1, list = FALSE) -->
-<!-- training <- data[ inTraining,] -->
-<!-- testing  <- data[-inTraining,] -->
-<!-- ``` -->
+# Treino de modelo de regressão Random Forest
 
-<!-- ## Random Forest com reamostragem em validação cruzada de 5 folds -->
-<!-- ```{r, cache=TRUE} -->
-<!-- set.seed(1) -->
-<!-- t1 <- proc.time() -->
+Utilização do algoritmo Random Forest com variáveis em escala, otimização do hiperparâmetro `mtry` por validação cruzada validação cruzada `k-fold`, onde k = `r detectCores()` (número de processadores)
+```{r, cache=TRUE}
+set.seed(1)
+t1 <- proc.time()
+fit <- train(ESPVIDA ~ ., training, method="rf", prepProcess="scale", importance=TRUE,
+             trControl=trainControl(method="cv", number=detectCores()))
+proc.time() - t1
+```
 
-<!-- fit <- train(ESPVIDA ~ ., training, method="rf", -->
-<!--              # trControl=trainControl(method="cv", number=5, search="grid")) -->
-<!--              trControl=trainControl(method = "none")) -->
-<!-- proc.time() - t1 -->
-<!-- fit -->
-<!-- postResample(predict(fit, testing), testing$ESPVIDA) -->
-<!-- ``` -->
-<!-- ```{r} -->
-<!-- importance <- varImp(fit, scale=FALSE) -->
-<!-- ``` -->
-<!-- ```{r} -->
-<!-- plot(importance, top=20) -->
-<!-- ``` -->
+# Resultado do treino
+```{r}
+fit
+```
 
-# Desabilitando processamento paralelo
+# Validando o modelo com os dados de teste
+```{r}
+predictions <- predict(fit, testing)
+postResample(predictions, testing$ESPVIDA)
+```
+
+```{r}
+series <- rbind(series, data.frame(ESPVIDA=predictions, amostra="predição"))
+ggplot(series) + geom_density(aes(ESPVIDA, color=amostra), size=1) +
+    labs(title="Comparação das predições com as amostras de treino e teste")
+```
+
+# Importância das variáveis no modelo desenvolvido
+```{r}
+importance <- varImp(fit, scale=FALSE)
+plot(importance, top=20)
+```
+
+# Final do processamento
+
+Desabilitando processamento paralelo.
 ```{r}
 stopCluster(cluster)
 registerDoSEQ()
 if(Sys.info()[1]=="Linux") noquote(system("ps -auxf | grep -e maurici+", intern=TRUE))
 ```
-
 ```{r, echo=FALSE}
 date()
 proc.time() - t0
