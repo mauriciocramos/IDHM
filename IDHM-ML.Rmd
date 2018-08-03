@@ -42,13 +42,13 @@ R.version.string
 
 Pacotes R:
 ```{r}
-packages <- c("plyr", "ggplot2", "gridExtra", "GGally", "dplyr", "tidyr", "caret", "parallel", "doParallel", "randomForest", "e1071", "xgboost", "gbm")
+packages <- c("caret", "parallel", "doParallel", "randomForest", "e1071", "xgboost", "gbm")
 loaded <- sapply(packages, require, character.only=TRUE, warn.conflicts=TRUE, quietly=FALSE)
 if(!all(loaded)) {
     missingPackages <- packages[loaded==FALSE]
     message("Installing package(s) ", paste(missingPackages, collapse=", "))
     install.packages(missingPackages, dependencies = TRUE)
-    installed <- ssapply(missingPackages, require, character.only=TRUE, warn.conflicts=TRUE, quietly=FALSE)
+    installed <- sapply(missingPackages, require, character.only=TRUE, warn.conflicts=TRUE, quietly=FALSE)
     if(!all(installed)) stop("Package(s) not installed: ", paste(missingPackages[installed==FALSE], collapse=", "))
     
 }
@@ -58,9 +58,9 @@ noquote(packageVersions)
 
 # Habilitando processamento paralelo
 ```{r}
-cluster <- makeCluster(detectCores()-1)
+cluster <- makeCluster(detectCores())
 registerDoParallel(cluster)
-noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
+if(Sys.info()[1]=="Linux") noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
 ```
 
 # Carga dos dados brutos do atlas municipal de 2010
@@ -68,27 +68,21 @@ noquote(system("ps -aufx | grep -e maurici+", intern=TRUE))
 data <- read.csv2("municipal.csv", encoding = "UTF-8",
                   colClasses=c(rep("factor",2),rep("character",3),rep("numeric", 232)))
 names(data) <- toupper(iconv(names(data), to="ASCII//TRANSLIT"))
-data <- filter(data, ANO=="2010")
+data <- data[data$ANO=="2010",]
 ```
 
 # Seleção das variáveis
 
 Remoção das variáveis identificadoras das observações, assumidas como irrelevantes para o modelo preditivo.
 ```{r}
-data <- select(data, -c("ANO", "UF", "CODMUN6", "CODMUN7", "MUNICIPIO"))
+data <- subset(data, select = -c(ANO, UF, CODMUN6, CODMUN7, MUNICIPIO))
 ```
 Remoção das variáveis dependentes da variável alvo `ESPVIDA` (expectativa de vida ao nascer) pois seriam um vazamento de dados no modelo preditivo.
 
 $$IDHM\_L = \frac{ESPVIDA - 25}{60}$$
 $$IDHM = \sqrt[3]{IDHM\_E * IDHM\_L * IDHM\_R}$$
 ```{r}
-data <- select(data, -c("IDHM", "IDHM_L"))
-```
-Variáveis altamente correlacionadas
-```{r}
-highlyCorrelated <- findCorrelation(cor(data[-1]), cutoff=0.8, names=TRUE)
-cat(length(highlyCorrelated), "variáveis: \n")
-cat(paste(highlyCorrelated, collapse=", "))
+data <- subset(data, select = -c(IDHM, IDHM_L))
 ```
 
 # Teste de multiplos modelos
@@ -97,9 +91,7 @@ cat(paste(highlyCorrelated, collapse=", "))
 if(!file.exists("models.RDS")) {
     models <- expand.grid(
         method = list("glm", "svmLinear2", "knn", "rf", "rpart", "gbm", "xgbTree"),
-        variables = list(noHighCor=names(data)[! names(data) %in% highlyCorrelated],
-                         all=names(data)),
-        partition = list(.1, .2, .3),#, .4, .5, .6, .7, .8, .9),
+        partition = list(.1, .2, .3, .4, .5, .6, .7, .8, .9),
         preProcess = list(null = NULL,
                           center = "center",
                           scale = "scale",
@@ -108,7 +100,6 @@ if(!file.exists("models.RDS")) {
                           center_pca = c("center", "pca"),
                           scale_pca = c("scale", "pca"),
                           center_scale_pca = c("center", "scale", "pca")),
-        #train = list(NA),
         time = list(NA),
         performance = list(NA))
     models <- as.list(as.data.frame(t(models), optional = TRUE))
@@ -121,34 +112,33 @@ for(i in seq(models)) {
                               " #",i,"/",length(models),
                               " training:",
                               " method=", method,
-                              " nvar=", length(variables), 
                               " %rows=", partition,
                               " preProc=", paste(preProcess, collapse="+")))
     set.seed(1)
     inTraining <- createDataPartition(data$ESPVIDA, p = models[[i]]$partition, list = FALSE)
     time <- proc.time()
-    fit <- train(ESPVIDA ~ ., data[inTraining, models[[i]]$variables],
+    fit <- train(ESPVIDA ~ ., data[inTraining, ],
                  #importance=NULL, #rf
                  #verbose=FALSE, #gbm
                  method = models[[i]]$method,
                  preProcess = models[[i]]$preProcess,
                  trControl = trainControl(method = "cv", number = 2, search = "grid"))
     models[[i]]$time <- proc.time() - time
-    models[[i]]$performance <- postResample(predict(fit, data[-inTraining, models[[i]]$variables]),
+    models[[i]]$performance <- postResample(predict(fit, data[-inTraining, ]),
                                             data$ESPVIDA[-inTraining])
-    with(models[[i]], message("\n\tRSME=", performance[[1]], " elapsed=", time[3]))
+    with(models[[i]], message("\n\tRMSE=", performance[[1]], " elapsed=", time[3]))
     rm(fit); rm(time); rm(inTraining)
     saveRDS(models, "models.RDS")
 }
 ```
 ```{r}
-bind_rows(lapply(models, function(x) data.frame(method=x$method,
-                                                variables=length(x$variables),
-                                                partition=x$partition,
-                                                preProcess=paste(x$preProcess, collapse=","),
-                                                RSME=x$performance[[1]],
-                                                elapsed=x$time[3],
-                                                stringsAsFactors = FALSE)))# %>% arrange(RSME)
+(summary <- Reduce(rbind, lapply(models, function(x) {
+    data.frame(method=x$method,
+               partition=x$partition,
+               preProcess=paste(x$preProcess, collapse=","),
+               RMSE=x$performance[[1]],
+               elapsed=x$time[[3]],stringsAsFactors = FALSE)
+})))
 ```
 
 <!-- # Particionamento dos dados de treino e teste -->
@@ -186,7 +176,7 @@ bind_rows(lapply(models, function(x) data.frame(method=x$method,
 ```{r}
 stopCluster(cluster)
 registerDoSEQ()
-noquote(system("ps -auxf | grep -e maurici+", intern=TRUE))
+if(Sys.info()[1]=="Linux") noquote(system("ps -auxf | grep -e maurici+", intern=TRUE))
 ```
 
 ```{r, echo=FALSE}
