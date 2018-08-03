@@ -63,12 +63,14 @@ registerDoParallel(cluster)
 if(Sys.info()[1]=="Linux") noquote(system("ps --ppid1 -o %cpu,%mem,cmd | grep parallel", intern=TRUE))
 ```
 
-# Carga dos dados brutos do atlas municipal de 2010
+# Carga dos dados
+
+Carga dos dados brutos do atlas municipal de 2010.
 ```{r}
 data <- read.csv2("municipal.csv", encoding = "UTF-8",
                   colClasses=c(rep("factor",2),rep("character",3),rep("numeric", 232)))
 names(data) <- toupper(iconv(names(data), to="ASCII//TRANSLIT"))
-data <- data[data$ANO=="2010",]
+data <- subset(data, ANO=="2010")
 ```
 
 # Seleção das variáveis
@@ -86,15 +88,13 @@ data <- subset(data, select = -c(IDHM, IDHM_L))
 ```
 
 # Particionamento dos dados de treino e teste (80/20)
+
+Oitenta por cento das observações serão utilizadas para treino do modelo e vinte por cento para o teste do modelo.
 ```{r}
 set.seed(1)
 inTraining <- createDataPartition(data$ESPVIDA, p = .8, list = FALSE)
 training <- data[ inTraining,]
 testing  <- data[-inTraining,]
-```
-
-## Representatividade da amostra
-```{r}
 series <- data["ESPVIDA"]
 series$amostra <- ifelse(seq(nrow(data)) %in% inTraining, "treino", "teste")
 ggplot(series) + geom_density(aes(ESPVIDA, color=amostra), size=1) +
@@ -112,7 +112,7 @@ fit <- train(ESPVIDA ~ ., training, method="rf", prepProcess="scale", importance
 proc.time() - t1
 ```
 
-# Resultado do treino
+Resultado do treino
 ```{r}
 fit
 ```
